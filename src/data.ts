@@ -3,32 +3,19 @@ import { Redis } from "ioredis";
 import type { File } from "./models/models.js";
 import type { Outpoint } from "./models/outpoint.js";
 import {
-	BtcProvider,
 	type ITxProvider,
 	ProxyProvider,
 	RpcProvider,
 } from "./provider.js";
 
 let bsvProvider: ITxProvider = new ProxyProvider();
-let btcProvider: ITxProvider = new BtcProvider();
 
 if (process.env.BITCOIN_HOST) {
 	bsvProvider = new RpcProvider(
-		"bsv",
 		process.env.BITCOIN_HOST || "",
 		process.env.BITCOIN_PORT || "8332",
 		process.env.BITCOIN_USER || "",
 		process.env.BITCOIN_PASS || "",
-	);
-}
-
-if (process.env.BTC_HOST) {
-	btcProvider = new RpcProvider(
-		"btc",
-		process.env.BTC_HOST || "",
-		process.env.BTC_PORT || "8332",
-		process.env.BTC_USER || "",
-		process.env.BTC_PASS || "",
 	);
 }
 
@@ -56,24 +43,9 @@ export async function getRawTx(txid: string): Promise<Buffer> {
 				`bsvProvider.getRawTx failed for ${txid}: ${(e as Error).message}`,
 			);
 		}
-		// const url = `http://${BITCOIN_HOST}:${BITCOIN_PORT}/rest/tx/${txid}.bin`
-		// const resp = await fetch(url);
-		// if (!resp.ok) {
-		//     throw createError(resp.status, resp.statusText)
-		// }
-		// rawtx = Buffer.from(await resp.arrayBuffer());
 	}
 	if (!rawtx) {
-		try {
-			rawtx = await btcProvider.getRawTx(txid);
-		} catch (e) {
-			console.warn(
-				`btcProvider.getRawTx failed for ${txid}: ${(e as Error).message}`,
-			);
-		}
-	}
-	if (!rawtx) {
-		throw new Error(`Transaction ${txid} not found by any provider`);
+		throw new Error(`Transaction ${txid} not found by BSV provider`);
 	}
 	return rawtx;
 }
@@ -82,42 +54,23 @@ export async function loadTx(txid: string): Promise<Tx> {
 	return Tx.fromBuffer(await getRawTx(txid));
 }
 
-export async function getBlockchainInfo(
-	network: string,
-): Promise<{ height: number; hash: string }> {
-	switch (network) {
-		case "bsv":
-			return bsvProvider.getBlockchainInfo();
-		case "btc":
-			return btcProvider.getBlockchainInfo();
-	}
-	throw new Error("Invalid Network");
+export async function getBlockchainInfo(): Promise<{
+	height: number;
+	hash: string;
+}> {
+	return bsvProvider.getBlockchainInfo();
 }
 
 export async function getBlockByHeight(
-	network: string,
 	height: number,
 ): Promise<{ height: number; hash: string }> {
-	switch (network) {
-		case "bsv":
-			return bsvProvider.getBlockByHeight(height);
-		case "btc":
-			return btcProvider.getBlockByHeight(height);
-	}
-	throw new Error("Invalid Network");
+	return bsvProvider.getBlockByHeight(height);
 }
 
 export async function getBlockByHash(
-	network: string,
 	hash: string,
 ): Promise<{ height: number; hash: string }> {
-	switch (network) {
-		case "bsv":
-			return bsvProvider.getBlockByHash(hash);
-		case "btc":
-			return btcProvider.getBlockByHash(hash);
-	}
-	throw new Error("Invalid Network");
+	return bsvProvider.getBlockByHash(hash);
 }
 
 export async function loadFileByOutpoint(

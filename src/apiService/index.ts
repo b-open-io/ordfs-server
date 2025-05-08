@@ -106,6 +106,51 @@ export const getFavicon = api.raw(
 	},
 );
 
+// Renders HTML provided as base64 in the path parameter
+export const getPreview = api.raw(
+	{ expose: true, method: "GET", path: "/preview/:b64HtmlData" },
+	async (req: IncomingMessage, resp: ServerResponse) => {
+		try {
+			if (!req.url) {
+				throw new Error("Request URL is missing");
+			}
+			// Extract base64 data from path: /preview/<base64data>
+			const prefix = "/preview/";
+			let b64HtmlData = "";
+			if (req.url.startsWith(prefix)) {
+				b64HtmlData = req.url.substring(prefix.length);
+			} else {
+				throw new Error("Invalid preview URL format");
+			}
+			// Remove potential query parameters
+			const queryIndex = b64HtmlData.indexOf('?');
+			if (queryIndex !== -1) {
+				b64HtmlData = b64HtmlData.substring(0, queryIndex);
+			}
+
+			// Decode Base64
+			const htmlData = Buffer.from(b64HtmlData, "base64").toString("utf8");
+
+			// Render the preview template
+			const viewPath = join(process.cwd(), "views", "pages", "preview.ejs");
+			const templateData = { htmlData }; // Pass decoded HTML to template
+			const ejsOptions: ejs.Options = {
+				root: join(process.cwd(), "views") // For potential includes in preview.ejs
+			};
+
+			const html = await ejs.renderFile(viewPath, templateData, ejsOptions);
+
+			resp.writeHead(200, { 'Content-Type': "text/html" });
+			resp.end(html);
+
+		} catch (error) {
+			console.error("Error rendering preview:", error);
+			resp.writeHead(400, { 'Content-Type': 'text/plain' }); // Use 400 for bad input/decode errors
+			resp.end(`Error rendering preview: ${(error as Error).message}`);
+		}
+	}
+);
+
 // Handles /:fileOrPointer for inscriptions, outpoints, or DNS names
 export const getFileOrPointer = api.raw(
 	{ expose: true, method: "GET", path: "/:fileOrPointer" },

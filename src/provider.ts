@@ -13,7 +13,7 @@ if (process.env.REDIS_HOST) {
 }
 
 export interface ITxProvider {
-	network: string;
+	// network: string; // Removed network field
 	getRawTx: (rawtx: string) => Promise<Buffer>;
 	getBlockchainInfo: () => Promise<{ height: number; hash: string }>;
 	getBlockByHeight: (
@@ -26,7 +26,7 @@ export class RpcProvider implements ITxProvider {
 	private client: Client;
 
 	constructor(
-		public network: string,
+		// public network: string, // Removed network parameter
 		host: string,
 		port: string,
 		username: string,
@@ -86,7 +86,7 @@ export class RpcProvider implements ITxProvider {
 }
 
 export class ProxyProvider implements ITxProvider {
-	public network = "bsv";
+	// public network = "bsv"; // No longer needed
 
 	async getRawTx(txid: string): Promise<Buffer> {
 		let rawtx = await redis?.getBuffer(txid);
@@ -146,6 +146,7 @@ export class ProxyProvider implements ITxProvider {
 	}
 }
 
+/* // Remove BtcProvider
 export class BtcProvider implements ITxProvider {
 	public network = "btc";
 
@@ -205,3 +206,4 @@ export class BtcProvider implements ITxProvider {
 		};
 	}
 }
+*/

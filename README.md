@@ -46,6 +46,7 @@ Once the server is running:
 *   **Fetch Inscription by TXID/Outpoint:**
     *   `http://localhost:4000/<txid>`
     *   `http://localhost:4000/<txid_vout>` (e.g., `http://localhost:4000/c7464f399365837cb6f72820f63a37f0709dd9f45f771243ebbac1d07716d72a_0`)
+    *   Can also be a B protocol or Ordinal TXID - it will resolve to the first one.
 *   **Fetch Inscription by DNS Pointer:**
     *   `http://localhost:4000/<your.dns.pointer>` (e.g., `http://localhost:4000/satoshi.bsv`)
 *   **Block Information:**
@@ -59,7 +60,7 @@ To use DNS pointers:
 
 1.  Ensure your domain's `A` or `CNAME` record points to the server where this Ordfs instance is running.
 2.  Create a `TXT` record for the domain/subdomain you wish to use. The `TXT` record should point to the Inscription ID (TXID or Outpoint) that serves as the content for that name.
-    *   Format: `ordfs=<InscriptionID>`
+    *   Format: `ordfs=<InscriptionID>` (where InscriptionID is `txid` or `txid_vout`)
     *   Hostname: Prefix the hostname with `_ordfs.`. For example, if your pointer is `mypointer.example.com`, the TXT record should be for `_ordfs.mypointer.example.com`.
 
 ## Project Structure & Architecture
@@ -78,7 +79,7 @@ For deploying to DigitalOcean's App Platform, refer to the detailed guide: [Depl
 ## Configuration
 
 *   **Redis for Caching:** The application uses Redis for caching inscription data. Encore manages the Redis instance locally when you run `encore run` (via Docker). For cloud deployments, Encore can provision Redis.
-*   **Node Configuration (Legacy):** The previous Express version used environment variables like `BTC_HOST`, `BITCOIN_HOST`, etc., for connecting to Bitcoin nodes. The current Encore version primarily uses public APIs (ord.io, 1sat.app) for data fetching, defined in `src/data.ts`. Direct node connections are not currently implemented in this version but could be added if needed.
+
 
 ## Linting and Formatting
 

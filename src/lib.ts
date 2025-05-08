@@ -72,7 +72,7 @@ export async function loadInscription(
 							);
 						}
 						const metaJson = await resp.json();
-						const { hash } = await getBlockByHeight("bsv", metaJson.height);
+						const { hash } = await getBlockByHeight(metaJson.height);
 						file.meta = { ...metaJson, hash };
 					} catch (e) {
 						console.warn(
@@ -153,7 +153,7 @@ export async function loadInscription(
 				);
 			}
 			const data = await resp.json();
-			const { hash } = await getBlockByHeight("bsv", data.height);
+			const { hash } = await getBlockByHeight(data.height);
 
 			file.meta = {
 				...data,
