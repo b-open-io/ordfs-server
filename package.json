@@ -18,6 +18,7 @@
     "@biomejs/biome": "^1.9.4",
     "@types/bitcore-lib": "^0.15.6",
     "@types/cors": "^2.8.18",
+    "@types/ejs": "^3.1.5",
     "@types/express": "5.0.1",
     "@types/http-errors": "^2.0.4",
     "@types/node": "^22.15.16",
@@ -34,10 +35,10 @@
     "cross-fetch": "^4.1.0",
     "dotenv": "^16.5.0",
     "ejs": "^3.1.10",
+    "encore.dev": "^1.46.21",
     "express": "5.1.0",
     "http-errors": "^2.0.0",
-    "ioredis": "^5.6.1",
-    "encore.dev": "^1.46.21"
+    "ioredis": "^5.6.1"
   },
   "overrides": {
     "whatwg-url": "^14.0.0"

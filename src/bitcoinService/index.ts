@@ -89,23 +89,6 @@ export const byHash = api(
 	},
 );
 
-export const helloBitcoin = api(
-	{ expose: true, method: "GET", path: "/encore-test-bitcoin" },
-	async () => {
-		await Promise.resolve();
-		// Return a slightly more complex object
-		return {
-			message: "Hello from native Encore in BitcoinService!",
-			data: {
-				height: 123,
-				hash: "abc",
-				timestamp: Date.now(),
-			},
-			status: "OK",
-		};
-	},
-);
-
 // Handles /:txid or /:txid_vout
 export const getPointerRoot = api.raw(
 	{ expose: true, method: "GET", path: "/internal/bitcoin/pointer/:pointer" },

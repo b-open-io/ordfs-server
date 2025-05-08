@@ -1,7 +1,7 @@
 # Setting up ordfs-server on DigitalOcean App Platform
 ## Go from zero to a self-hosted Bitcoin website in just five minutes!
 
-1. Fork the [ordfs-server repository on GitHub](https://github.com/shruggr/ordfs-server).
+1. Fork the [ordfs-server repository on GitHub](https://github.com/b-open-io/ordfs-server).
 2. Log into your DigitalOcean dashboard.
 3. Navigate to "Apps" in the "Manage" menu.
 4. Click on "Create App".

@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 // import server from "../server.js"; // Commented out Express app import
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { join } from "node:path";
+import ejs from "ejs"; // Import ejs
 import { api } from "encore.dev/api";
 import * as bitcoinService from "../bitcoinService/index.js"; // Import the bitcoinService
 import { loadPointerFromDNS } from "../lib.js";
@@ -45,23 +46,62 @@ export const fallback = api.raw(
 // (64 hex chars, optionally followed by _ and one or more digits)
 const txidRegex = /^[a-fA-F0-9]{64}(_[0-9]+)?$/;
 
-// Serves the main index.html page
+// Serves the main index.html page using EJS
 export const getRoot = api.raw(
 	{ expose: true, method: "GET", path: "/" },
 	async (_req: IncomingMessage, resp: ServerResponse) => {
 		try {
-			const filePath = join(process.cwd(), "public", "index.html");
-			const fileData = await readFile(filePath);
+			const viewPath = join(process.cwd(), "views", "pages", "index.ejs");
+			// Data to pass to the EJS template
+			const templateData = {
+				process: {
+					env: {
+						ORDFS_NAME: process.env.ORDFS_NAME || "Ordfs Server", // Provide default
+					},
+				},
+			};
+			// EJS options - specifying the root directory for includes
+			const ejsOptions: ejs.Options = {
+				root: join(process.cwd(), "views"), // Allows includes like <%- include('../partials/head'); %>
+			};
+
+			const html = await ejs.renderFile(viewPath, templateData, ejsOptions);
 
 			resp.writeHead(200, {
 				"Content-Type": "text/html",
+				// Content-Length is tricky with dynamic rendering, let Node.js handle it by default
+			});
+			resp.end(html);
+		} catch (error) {
+			console.error("Error rendering index.ejs:", error);
+			resp.writeHead(500, { "Content-Type": "text/plain" });
+			resp.end("Internal Server Error rendering template");
+		}
+	},
+);
+
+// Serves favicon.ico
+export const getFavicon = api.raw(
+	{ expose: true, method: "GET", path: "/favicon.ico" },
+	async (_req: IncomingMessage, resp: ServerResponse) => {
+		try {
+			const filePath = join(process.cwd(), "public", "favicon.ico");
+			// Determine content type based on file extension, default to image/x-icon
+			// For simplicity, we'll assume it's always .ico for favicon.ico
+			const contentType = "image/x-icon";
+			const fileData = await readFile(filePath);
+
+			resp.writeHead(200, {
+				"Content-Type": contentType,
 				"Content-Length": fileData.length,
 			});
 			resp.end(fileData);
 		} catch (error) {
-			console.error("Error serving index.html:", error);
-			resp.writeHead(500, { "Content-Type": "text/plain" });
-			resp.end("Internal Server Error");
+			// If favicon.ico is not found, it's common to return a 204 No Content
+			// or a 404. For simplicity, let's do 404 if it's truly missing.
+			console.warn("favicon.ico not found:", error);
+			resp.writeHead(404, { "Content-Type": "text/plain" });
+			resp.end("Not Found");
 		}
 	},
 );
