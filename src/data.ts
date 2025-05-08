@@ -129,7 +129,9 @@ export async function loadFileByOutpoint(
 	}`;
 	const resp = await fetch(url);
 	if (!resp.ok) {
-		throw new Error(`loadFileByOutpoint fetch failed for ${outpoint}: ${resp.status} ${resp.statusText}`);
+		throw new Error(
+			`loadFileByOutpoint fetch failed for ${outpoint}: ${resp.status} ${resp.statusText}`,
+		);
 	}
 	return {
 		data: Buffer.from(await resp.arrayBuffer()),

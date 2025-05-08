@@ -67,7 +67,9 @@ export async function loadInscription(
 						const url = `https://ordinals.gorillapool.io/api/txos/${pointer}`;
 						const resp = await fetch(url);
 						if (!resp.ok) {
-							throw new Error(`Metadata fetch failed for cached entry ${pointer}: ${resp.status} ${resp.statusText}`);
+							throw new Error(
+								`Metadata fetch failed for cached entry ${pointer}: ${resp.status} ${resp.statusText}`,
+							);
 						}
 						const metaJson = await resp.json();
 						const { hash } = await getBlockByHeight("bsv", metaJson.height);
@@ -146,7 +148,9 @@ export async function loadInscription(
 			const url = `https://ordinals.gorillapool.io/api/txos/${effectivePointer}`;
 			const resp = await fetch(url);
 			if (!resp.ok) {
-				throw new Error(`Metadata fetch failed for ${effectivePointer}: ${resp.status} ${resp.statusText}`);
+				throw new Error(
+					`Metadata fetch failed for ${effectivePointer}: ${resp.status} ${resp.statusText}`,
+				);
 			}
 			const data = await resp.json();
 			const { hash } = await getBlockByHeight("bsv", data.height);

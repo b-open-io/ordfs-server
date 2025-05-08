@@ -35,7 +35,9 @@ export function RegisterRoutes(app: express.Express) {
 				}
 				sendFile(file, res, false);
 			} catch (_err) {
-				console.error(`Error in / route DNS lookup: ${(_err as Error).message}`);
+				console.error(
+					`Error in / route DNS lookup: ${(_err as Error).message}`,
+				);
 				res.status(404).render("pages/404");
 			}
 		}
@@ -96,24 +98,30 @@ export function RegisterRoutes(app: express.Express) {
 		let file: File | undefined;
 		let immutable = true;
 		try {
-			file = await loadInscription(pointer, req.query.meta === 'true', true);
+			file = await loadInscription(pointer, req.query.meta === "true", true);
 		} catch (initialError) {
 			if (ORDFS_DOMAINS && req.hostname != ORDFS_HOST) {
-				console.log(`Initial load failed for ${pointer}, attempting DNS fallback for ${req.hostname}`);
+				console.log(
+					`Initial load failed for ${pointer}, attempting DNS fallback for ${req.hostname}`,
+				);
 				try {
 					const filenameToLookup = pointer;
 					const dnsPointer = await loadPointerFromDNS(req.hostname);
 					const dirData = await loadInscription(dnsPointer);
 					const dir = JSON.parse(dirData.data!.toString("utf8"));
 					if (!dir[filenameToLookup]) {
-						throw new Error(`File '${filenameToLookup}' not found in DNS directory for ${req.hostname}`);
+						throw new Error(
+							`File '${filenameToLookup}' not found in DNS directory for ${req.hostname}`,
+						);
 					}
 					pointer = dir[filenameToLookup].slice(6);
-					file = await loadInscription(pointer, req.query.meta === 'true');
+					file = await loadInscription(pointer, req.query.meta === "true");
 					immutable = false;
 					console.log(`DNS fallback succeeded, loaded ${pointer}`);
 				} catch (dnsErr) {
-					console.warn(`DNS fallback failed for ${req.hostname}: ${(dnsErr as Error).message}`);
+					console.warn(
+						`DNS fallback failed for ${req.hostname}: ${(dnsErr as Error).message}`,
+					);
 					return next(initialError);
 				}
 			} else {
@@ -130,7 +138,7 @@ export function RegisterRoutes(app: express.Express) {
 	async function getInscription(req, res, next) {
 		const pointer = req.params.pointer;
 		try {
-			const file = await loadInscription(pointer, req.query.meta === 'true');
+			const file = await loadInscription(pointer, req.query.meta === "true");
 			// check if its an ordfs directory
 			if (file.type === "ord-fs/json" && !req.query.raw) {
 				req.res?.redirect(`/${pointer}/index.html`);
@@ -159,7 +167,7 @@ export function RegisterRoutes(app: express.Express) {
 			} else {
 				pointer = dir[filename];
 			}
-			const file = await loadInscription(pointer, req.query.meta === 'true');
+			const file = await loadInscription(pointer, req.query.meta === "true");
 			sendFile(file, res, true);
 		} catch (err) {
 			next(err);
