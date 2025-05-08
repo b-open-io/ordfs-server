@@ -1,6 +1,5 @@
 import * as dns from "node:dns/promises";
 import fetch from "cross-fetch";
-import createError, { BadRequest, NotFound } from "http-errors";
 
 import {
 	getBlockByHeight,
@@ -8,9 +7,9 @@ import {
 	loadFileByOutpoint,
 	loadFileByTxid,
 	redis,
-} from "./data";
-import { File } from "./models/models";
-import { Outpoint } from "./models/outpoint";
+} from "./data.js";
+import { type File } from "./models/models.js";
+import { Outpoint } from "./models/outpoint.js";
 
 const CACHE_TTL_SECONDS = 60 * 60 * 24; // 24 hours
 
@@ -29,7 +28,7 @@ export async function loadPointerFromDNS(hostname: string): Promise<string> {
 			return pointer;
 		}
 	}
-	throw new NotFound();
+	throw new Error("ordfs= TXT record not found in DNS");
 }
 
 export async function loadInscription(
@@ -68,14 +67,14 @@ export async function loadInscription(
 						const url = `https://ordinals.gorillapool.io/api/txos/${pointer}`;
 						const resp = await fetch(url);
 						if (!resp.ok) {
-							throw createError(resp.status, resp.statusText);
+							throw new Error(`Metadata fetch failed for cached entry ${pointer}: ${resp.status} ${resp.statusText}`);
 						}
 						const metaJson = await resp.json();
 						const { hash } = await getBlockByHeight("bsv", metaJson.height);
 						file.meta = { ...metaJson, hash };
 					} catch (e) {
 						console.warn(
-							`Metadata fetch failed for cached entry ${pointer}: ${(e as Error).message}`,
+							`Metadata fetch warning for cached entry ${pointer}: ${(e as Error).message}`,
 						);
 					}
 				}
@@ -135,11 +134,11 @@ export async function loadInscription(
 		console.log(
 			`loadFileByOutpoint succeeded for outpoint ${pointer}. File type: ${file?.type}, Data length: ${file?.data?.length}`,
 		);
-	} else throw new BadRequest("Invalid Pointer");
+	} else throw new Error("Invalid Pointer");
 
 	if (!file) {
 		console.error(`No file found for pointer ${pointer} after all attempts.`);
-		throw new NotFound();
+		throw new Error("Inscription Not Found");
 	}
 
 	if (metadata && effectivePointer.match(/^[0-9a-fA-F]{64}_\d+$/) && file) {
@@ -147,7 +146,7 @@ export async function loadInscription(
 			const url = `https://ordinals.gorillapool.io/api/txos/${effectivePointer}`;
 			const resp = await fetch(url);
 			if (!resp.ok) {
-				throw createError(resp.status, resp.statusText);
+				throw new Error(`Metadata fetch failed for ${effectivePointer}: ${resp.status} ${resp.statusText}`);
 			}
 			const data = await resp.json();
 			const { hash } = await getBlockByHeight("bsv", data.height);
@@ -158,7 +157,7 @@ export async function loadInscription(
 			};
 		} catch (e) {
 			console.warn(
-				`Metadata fetch failed for ${effectivePointer}: ${(e as Error).message}`,
+				`Metadata fetch warning for ${effectivePointer}: ${(e as Error).message}`,
 			);
 		}
 	}
@@ -181,4 +180,3 @@ export async function loadInscription(
 	console.log(`Returning file for pointer ${pointer}. Type: ${file.type}`);
 	return file;
 }
-export { File };

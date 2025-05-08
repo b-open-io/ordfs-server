@@ -1,15 +1,13 @@
 import { OpCode, type Script, Tx } from "@ts-bitcoin/core";
-import { Transaction } from "bitcore-lib";
-import createError, { NotFound } from "http-errors";
 import { Redis } from "ioredis";
-import type { File } from "./models/models";
-import type { Outpoint } from "./models/outpoint";
+import type { File } from "./models/models.js";
+import type { Outpoint } from "./models/outpoint.js";
 import {
 	BtcProvider,
 	type ITxProvider,
 	ProxyProvider,
 	RpcProvider,
-} from "./provider";
+} from "./provider.js";
 
 let bsvProvider: ITxProvider = new ProxyProvider();
 let btcProvider: ITxProvider = new BtcProvider();
@@ -75,7 +73,7 @@ export async function getRawTx(txid: string): Promise<Buffer> {
 		}
 	}
 	if (!rawtx) {
-		throw new NotFound();
+		throw new Error(`Transaction ${txid} not found by any provider`);
 	}
 	return rawtx;
 }
@@ -131,7 +129,7 @@ export async function loadFileByOutpoint(
 	}`;
 	const resp = await fetch(url);
 	if (!resp.ok) {
-		throw createError(resp.status, resp.statusText);
+		throw new Error(`loadFileByOutpoint fetch failed for ${outpoint}: ${resp.status} ${resp.statusText}`);
 	}
 	return {
 		data: Buffer.from(await resp.arrayBuffer()),
@@ -142,7 +140,7 @@ export async function loadFileByOutpoint(
 export async function loadFileByInpoint(inpoint: string): Promise<File> {
 	const [txid, vout] = inpoint.split("i");
 	const rawtx = await getRawTx(txid);
-	const tx = new Transaction(rawtx);
+	const tx = Tx.fromBuffer(rawtx);
 	return parseScript(tx.txIns[Number.parseInt(vout, 10)].script);
 }
 
@@ -158,7 +156,7 @@ export async function loadFileByTxid(txid: string): Promise<File> {
 			);
 		}
 	}
-	throw new NotFound();
+	throw new Error(`Inscription not found in any output for tx ${txid}`);
 }
 
 export function parseScript(script: Script): File {
@@ -194,5 +192,5 @@ export function parseScript(script: Script): File {
 			};
 		}
 	}
-	throw new NotFound();
+	throw new Error("Inscription pattern not found in script");
 }

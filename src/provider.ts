@@ -1,6 +1,5 @@
 import Client from "bitcoin-core";
-import "cross-fetch/polyfill";
-import createError, { NotFound } from "http-errors";
+import "cross-fetch/dist/node-polyfill.js";
 import { Redis } from "ioredis";
 
 let redis: Redis;
@@ -47,7 +46,7 @@ export class RpcProvider implements ITxProvider {
 				extension: "bin",
 			});
 			if (!rawtx) {
-				throw new NotFound();
+				throw new Error("RpcProvider: Transaction not found");
 			}
 			redis?.set(txid, rawtx);
 		}
@@ -96,7 +95,7 @@ export class ProxyProvider implements ITxProvider {
 				`https://junglebus.gorillapool.io/v1/transaction/get/${txid}/bin`,
 			);
 			if (!resp.ok) {
-				throw createError(resp.status, resp.statusText);
+				throw new Error(`ProxyProvider: Fetch failed: ${resp.status} ${resp.statusText}`);
 			}
 			rawtx = Buffer.from(await resp.arrayBuffer());
 			redis?.set(txid, rawtx);
@@ -109,7 +108,7 @@ export class ProxyProvider implements ITxProvider {
 			"https://api.whatsonchain.com/v1/bsv/main/block/headers",
 		);
 		if (!resp.ok) {
-			throw createError(resp.status, resp.statusText);
+			throw new Error(`ProxyProvider: GetBlockchainInfo failed: ${resp.status} ${resp.statusText}`);
 		}
 		const info = await resp.json();
 		return {
@@ -154,7 +153,7 @@ export class BtcProvider implements ITxProvider {
 				`https://ordfs.gorillapool.io/v1/btc/tx/${txid}`,
 			);
 			if (!resp.ok) {
-				throw createError(resp.status, resp.statusText);
+				throw new Error(`BtcProvider: Fetch failed for ${txid}: ${resp.status} ${resp.statusText}`);
 			}
 			rawtx = Buffer.from(await resp.arrayBuffer());
 			redis?.set(txid, rawtx);
@@ -168,7 +167,7 @@ export class BtcProvider implements ITxProvider {
 			"https://ordfs.gorillapool.io/v1/btc/block/latest",
 		);
 		if (!resp.ok) {
-			throw createError(resp.status, resp.statusText);
+			throw new Error(`BtcProvider: getBlockchainInfo failed: ${resp.status} ${resp.statusText}`);
 		}
 
 		return resp.json();

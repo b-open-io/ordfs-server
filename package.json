@@ -1,43 +1,45 @@
 {
-	"name": "ordfs-server",
-	"version": "1.0.0",
-	"description": "",
-	"main": "index.js",
-	"scripts": {
-		"build": "tsc",
-		"start": "bun run build && node dist/server.js",
-		"test": "echo \"Error: no test specified\" && exit 1",
-		"lint": "biome check src/",
-		"lint:fix": "biome check --write src/",
-		"lint:fix:unsafe": "biome check --fix --unsafe src/",
-		"dev": "bun run src/server.ts"
-	},
-	"author": "",
-	"license": "ISC",
-	"devDependencies": {
-		"@biomejs/biome": "^1.9.4",
-		"@types/cors": "^2.8.18",
-		"@types/express": "5.0.1",
-		"@types/http-errors": "^2.0.4",
-		"@types/node": "^22.15.16",
-		"nodemon": "^3.1.10",
-		"ts-node": "^10.9.2",
-		"typescript": "^5.8.3"
-	},
-	"dependencies": {
-		"@ts-bitcoin/core": "^2.2.0",
-		"axios": "^1.9.0",
-		"bitcoin-core": "5.0.0",
-		"bitcore-lib": "^10.9.0",
-		"cors": "^2.8.5",
-		"cross-fetch": "^4.1.0",
-		"dotenv": "^16.5.0",
-		"ejs": "^3.1.10",
-		"express": "5.1.0",
-		"http-errors": "^2.0.0",
-		"ioredis": "^5.6.1"
-	},
-	"overrides": {
-		"whatwg-url": "^14.0.0"
-	}
+  "name": "ordfs-server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "bun run build && node dist/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "biome check src/",
+    "lint:fix": "biome check --write src/",
+    "lint:fix:unsafe": "biome check --fix --unsafe src/",
+    "dev": "bun run src/server.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/bitcore-lib": "^0.15.6",
+    "@types/cors": "^2.8.18",
+    "@types/express": "5.0.1",
+    "@types/http-errors": "^2.0.4",
+    "@types/node": "^22.15.16",
+    "nodemon": "^3.1.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@ts-bitcoin/core": "^2.2.0",
+    "axios": "^1.9.0",
+    "bitcoin-core": "5.0.0",
+    "bitcore-lib": "^10.9.0",
+    "cors": "^2.8.5",
+    "cross-fetch": "^4.1.0",
+    "dotenv": "^16.5.0",
+    "ejs": "^3.1.10",
+    "express": "5.1.0",
+    "http-errors": "^2.0.0",
+    "ioredis": "^5.6.1",
+    "encore.dev": "^1.46.21"
+  },
+  "overrides": {
+    "whatwg-url": "^14.0.0"
+  }
 }

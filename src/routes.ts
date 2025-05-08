@@ -1,14 +1,14 @@
 import type express from "express";
 import type { Response } from "express";
-import { BadRequest, NotFound } from "http-errors";
+
 import {
 	getBlockByHash,
 	getBlockByHeight,
 	getBlockchainInfo,
 	getRawTx,
-} from "./data";
-import { loadInscription, loadPointerFromDNS } from "./lib";
-import type { File, OrdFS } from "./models/models";
+} from "./data.js";
+import { loadInscription, loadPointerFromDNS } from "./lib.js";
+import type { File, OrdFS } from "./models/models.js";
 
 const { ORDFS_DOMAINS, ORDFS_HOST } = process.env;
 function sendFile(file: File, res: Response, immutable = true) {
@@ -35,8 +35,8 @@ export function RegisterRoutes(app: express.Express) {
 				}
 				sendFile(file, res, false);
 			} catch (_err) {
-				// TODO: inscription not found
-				res.render("pages/404");
+				console.error(`Error in / route DNS lookup: ${(_err as Error).message}`);
+				res.status(404).render("pages/404");
 			}
 		}
 		res.render("pages/index");
@@ -96,37 +96,41 @@ export function RegisterRoutes(app: express.Express) {
 		let file: File | undefined;
 		let immutable = true;
 		try {
-			try {
-				file = await loadInscription(pointer, req.query.meta, true);
-			} catch (err) {
-				if (!(err instanceof BadRequest)) {
-					throw err;
-				}
-				if (ORDFS_DOMAINS && req.hostname != ORDFS_HOST) {
-					const filename = pointer;
-					pointer = await loadPointerFromDNS(req.hostname);
-					const dirData = await loadInscription(pointer);
+			file = await loadInscription(pointer, req.query.meta === 'true', true);
+		} catch (initialError) {
+			if (ORDFS_DOMAINS && req.hostname != ORDFS_HOST) {
+				console.log(`Initial load failed for ${pointer}, attempting DNS fallback for ${req.hostname}`);
+				try {
+					const filenameToLookup = pointer;
+					const dnsPointer = await loadPointerFromDNS(req.hostname);
+					const dirData = await loadInscription(dnsPointer);
 					const dir = JSON.parse(dirData.data!.toString("utf8"));
-					if (!dir[filename]) {
-						throw new NotFound();
+					if (!dir[filenameToLookup]) {
+						throw new Error(`File '${filenameToLookup}' not found in DNS directory for ${req.hostname}`);
 					}
-					pointer = dir[filename].slice(6);
-					file = await loadInscription(pointer, req.query.meta);
+					pointer = dir[filenameToLookup].slice(6);
+					file = await loadInscription(pointer, req.query.meta === 'true');
+					immutable = false;
+					console.log(`DNS fallback succeeded, loaded ${pointer}`);
+				} catch (dnsErr) {
+					console.warn(`DNS fallback failed for ${req.hostname}: ${(dnsErr as Error).message}`);
+					return next(initialError);
 				}
+			} else {
+				return next(initialError);
 			}
-			if (!file) {
-				throw new NotFound();
-			}
-			sendFile(file, res, immutable);
-		} catch (err) {
-			next(err);
 		}
+
+		if (!file) {
+			return next(new Error("File not found after all attempts"));
+		}
+		sendFile(file, res, immutable);
 	}
 
 	async function getInscription(req, res, next) {
 		const pointer = req.params.pointer;
 		try {
-			const file = await loadInscription(pointer, req.query.meta);
+			const file = await loadInscription(pointer, req.query.meta === 'true');
 			// check if its an ordfs directory
 			if (file.type === "ord-fs/json" && !req.query.raw) {
 				req.res?.redirect(`/${pointer}/index.html`);
@@ -144,18 +148,18 @@ export function RegisterRoutes(app: express.Express) {
 			const filename = req.params.filename;
 			const dirData = await loadInscription(pointer);
 			if (!dirData.data) {
-				throw new NotFound();
+				throw new Error("OrdFS directory data not found");
 			}
 			const dir: OrdFS = JSON.parse(dirData.data.toString("utf8"));
 			if (!dir[filename]) {
-				throw new NotFound();
+				throw new Error("File not found in OrdFS directory");
 			}
 			if (dir[filename].startsWith("ord://")) {
 				pointer = dir[filename].slice(6);
 			} else {
 				pointer = dir[filename];
 			}
-			const file = await loadInscription(pointer, req.query.meta);
+			const file = await loadInscription(pointer, req.query.meta === 'true');
 			sendFile(file, res, true);
 		} catch (err) {
 			next(err);
