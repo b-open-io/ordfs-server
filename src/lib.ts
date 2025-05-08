@@ -55,8 +55,10 @@ export async function loadInscription(
 			const typeResult = execResult?.[0];
 			const dataResult = execResult?.[1];
 
-			const actualCachedType = typeResult && !typeResult[0] ? typeResult[1] as string | null : null;
-			const actualCachedData = dataResult && !dataResult[0] ? dataResult[1] as Buffer | null : null;
+			const actualCachedType =
+				typeResult && !typeResult[0] ? (typeResult[1] as string | null) : null;
+			const actualCachedData =
+				dataResult && !dataResult[0] ? (dataResult[1] as Buffer | null) : null;
 
 			if (actualCachedType && actualCachedData) {
 				console.log(`Cache HIT for pointer: ${pointer}`);
@@ -81,7 +83,9 @@ export async function loadInscription(
 			}
 			console.log(`Cache MISS for pointer: ${pointer}`);
 		} catch (err) {
-			console.error(`Redis error during cache read for ${pointer}: ${(err as Error).message}`);
+			console.error(
+				`Redis error during cache read for ${pointer}: ${(err as Error).message}`,
+			);
 		}
 	}
 
@@ -97,7 +101,10 @@ export async function loadInscription(
 			console.log(
 				`Calling loadFileByOutpoint for ${effectivePointer} with fuzzy=${fuzzy}`,
 			);
-			file = await loadFileByOutpoint(Outpoint.fromString(effectivePointer), fuzzy);
+			file = await loadFileByOutpoint(
+				Outpoint.fromString(effectivePointer),
+				fuzzy,
+			);
 			console.log(
 				`loadFileByOutpoint succeeded for ${effectivePointer}. File type: ${file?.type}, Data length: ${file?.data?.length}`,
 			);
@@ -150,7 +157,9 @@ export async function loadInscription(
 				hash,
 			};
 		} catch (e) {
-			console.warn(`Metadata fetch failed for ${effectivePointer}: ${(e as Error).message}`);
+			console.warn(
+				`Metadata fetch failed for ${effectivePointer}: ${(e as Error).message}`,
+			);
 		}
 	}
 
@@ -163,7 +172,9 @@ export async function loadInscription(
 				.exec();
 			console.log(`Stored in cache: ${pointer}`);
 		} catch (err) {
-			console.error(`Redis error during cache write for ${pointer}: ${(err as Error).message}`);
+			console.error(
+				`Redis error during cache write for ${pointer}: ${(err as Error).message}`,
+			);
 		}
 	}
 
