@@ -46,6 +46,7 @@ if (process.env.REDIS_HOST) {
 	console.log("Connecting to redis:", host, port);
 	redis = new Redis(port, host);
 }
+export { redis };
 
 export async function getRawTx(txid: string): Promise<Buffer> {
 	let rawtx = await redis?.getBuffer(txid);

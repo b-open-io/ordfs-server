@@ -7,9 +7,12 @@ import {
 	loadFileByInpoint,
 	loadFileByOutpoint,
 	loadFileByTxid,
+	redis,
 } from "./data";
 import { File } from "./models/models";
 import { Outpoint } from "./models/outpoint";
+
+const CACHE_TTL_SECONDS = 60 * 60 * 24; // 24 hours
 
 export async function loadPointerFromDNS(hostname: string): Promise<string> {
 	const lookupDomain = `_ordfs.${hostname}`;
@@ -35,24 +38,72 @@ export async function loadInscription(
 	fuzzy = false,
 ): Promise<File> {
 	console.log("loadInscription", pointer, { metadata, fuzzy });
+
+	const cacheKeyBase = `inscription:${pointer}`;
+	const cacheKeyType = `${cacheKeyBase}:type`;
+	const cacheKeyData = `${cacheKeyBase}:data`;
+
+	if (redis) {
+		try {
+			const execResult = await redis
+				.multi()
+				.get(cacheKeyType)
+				.getBuffer(cacheKeyData)
+				.exec();
+
+			// exec() returns an array of [error, result] tuples
+			const typeResult = execResult?.[0];
+			const dataResult = execResult?.[1];
+
+			const actualCachedType = typeResult && !typeResult[0] ? typeResult[1] as string | null : null;
+			const actualCachedData = dataResult && !dataResult[0] ? dataResult[1] as Buffer | null : null;
+
+			if (actualCachedType && actualCachedData) {
+				console.log(`Cache HIT for pointer: ${pointer}`);
+				const file: File = { type: actualCachedType, data: actualCachedData };
+				if (metadata && pointer.match(/^[0-9a-fA-F]{64}_\d+$/) && file) {
+					try {
+						const url = `https://ordinals.gorillapool.io/api/txos/${pointer}`;
+						const resp = await fetch(url);
+						if (!resp.ok) {
+							throw createError(resp.status, resp.statusText);
+						}
+						const metaJson = await resp.json();
+						const { hash } = await getBlockByHeight("bsv", metaJson.height);
+						file.meta = { ...metaJson, hash };
+					} catch (e) {
+						console.warn(
+							`Metadata fetch failed for cached entry ${pointer}: ${(e as Error).message}`,
+						);
+					}
+				}
+				return file;
+			}
+			console.log(`Cache MISS for pointer: ${pointer}`);
+		} catch (err) {
+			console.error(`Redis error during cache read for ${pointer}: ${(err as Error).message}`);
+		}
+	}
+
 	let file: File | undefined;
+	let effectivePointer = pointer;
 
 	if (pointer.match(/^[0-9a-fA-F]{64}$/)) {
 		console.log(
 			`Raw TXID detected: ${pointer}. Attempting TXID_0 with fuzzy=${fuzzy}`,
 		);
+		effectivePointer = `${pointer}_0`;
 		try {
-			const outpointStr = `${pointer}_0`;
 			console.log(
-				`Calling loadFileByOutpoint for ${outpointStr} with fuzzy=${fuzzy}`,
+				`Calling loadFileByOutpoint for ${effectivePointer} with fuzzy=${fuzzy}`,
 			);
-			file = await loadFileByOutpoint(Outpoint.fromString(outpointStr), fuzzy);
+			file = await loadFileByOutpoint(Outpoint.fromString(effectivePointer), fuzzy);
 			console.log(
-				`loadFileByOutpoint succeeded for ${outpointStr}. File type: ${file?.type}, Data length: ${file?.data?.length}`,
+				`loadFileByOutpoint succeeded for ${effectivePointer}. File type: ${file?.type}, Data length: ${file?.data?.length}`,
 			);
 		} catch (err) {
 			console.warn(
-				`loadFileByOutpoint for ${pointer}_0 failed with fuzzy=${fuzzy}. Error: ${(err as Error).message}. Falling back to loadFileByTxid.`,
+				`loadFileByOutpoint for ${effectivePointer} failed with fuzzy=${fuzzy}. Error: ${(err as Error).message}. Falling back to loadFileByTxid.`,
 			);
 			try {
 				console.log(`Calling fallback loadFileByTxid for ${pointer}`);
@@ -77,30 +128,45 @@ export async function loadInscription(
 		console.log(
 			`loadFileByOutpoint succeeded for outpoint ${pointer}. File type: ${file?.type}, Data length: ${file?.data?.length}`,
 		);
-		if (file && metadata) {
-			try {
-				const url = `https://ordinals.gorillapool.io/api/txos/${pointer}`;
-				const resp = await fetch(url);
-				if (!resp.ok) {
-					throw createError(resp.status, resp.statusText);
-				}
-				const data = await resp.json();
-				const { hash } = await getBlockByHeight("bsv", data.height);
-
-				file.meta = {
-					...data,
-					hash,
-				};
-			} catch (e) {
-				console.warn(`Metadata fetch failed: ${(e as Error).message}`);
-			}
-		}
 	} else throw new BadRequest("Invalid Pointer");
 
 	if (!file) {
 		console.error(`No file found for pointer ${pointer} after all attempts.`);
 		throw new NotFound();
 	}
+
+	if (metadata && effectivePointer.match(/^[0-9a-fA-F]{64}_\d+$/) && file) {
+		try {
+			const url = `https://ordinals.gorillapool.io/api/txos/${effectivePointer}`;
+			const resp = await fetch(url);
+			if (!resp.ok) {
+				throw createError(resp.status, resp.statusText);
+			}
+			const data = await resp.json();
+			const { hash } = await getBlockByHeight("bsv", data.height);
+
+			file.meta = {
+				...data,
+				hash,
+			};
+		} catch (e) {
+			console.warn(`Metadata fetch failed for ${effectivePointer}: ${(e as Error).message}`);
+		}
+	}
+
+	if (redis && file.data && file.type) {
+		try {
+			await redis
+				.multi()
+				.set(cacheKeyType, file.type, "EX", CACHE_TTL_SECONDS)
+				.set(cacheKeyData, file.data, "EX", CACHE_TTL_SECONDS)
+				.exec();
+			console.log(`Stored in cache: ${pointer}`);
+		} catch (err) {
+			console.error(`Redis error during cache write for ${pointer}: ${(err as Error).message}`);
+		}
+	}
+
 	console.log(`Returning file for pointer ${pointer}. Type: ${file.type}`);
 	return file;
 }
