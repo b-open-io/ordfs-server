@@ -1,2 +1,602 @@
-var e=require("http-errors"),t=require("@ts-bitcoin/core"),r=require("dns/promises"),n=require("cross-fetch"),o=require("@gorillapool/js-junglebus"),i=require("ioredis");function u(e){return e&&"object"==typeof e&&"default"in e?e:{default:e}}function a(e){if(e&&e.__esModule)return e;var t=Object.create(null);return e&&Object.keys(e).forEach(function(r){if("default"!==r){var n=Object.getOwnPropertyDescriptor(e,r);Object.defineProperty(t,r,n.get?n:{enumerable:!0,get:function(){return e[r]}})}}),t.default=e,t}var s,c=/*#__PURE__*/u(e),f=/*#__PURE__*/a(r),h=/*#__PURE__*/u(n);function l(e,t){(null==t||t>e.length)&&(t=e.length);for(var r=0,n=new Array(t);r<t;r++)n[r]=e[r];return n}function v(e,t){var r="undefined"!=typeof Symbol&&e[Symbol.iterator]||e["@@iterator"];if(r)return(r=r.call(e)).next.bind(r);if(Array.isArray(e)||(r=function(e,t){if(e){if("string"==typeof e)return l(e,t);var r=Object.prototype.toString.call(e).slice(8,-1);return"Object"===r&&e.constructor&&(r=e.constructor.name),"Map"===r||"Set"===r?Array.from(e):"Arguments"===r||/^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(r)?l(e,t):void 0}}(e))||t&&e&&"number"==typeof e.length){r&&(e=r);var n=0;return function(){return n>=e.length?{done:!0}:{done:!1,value:e[n++]}}}throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.")}if(process.env.REDIS_HOST){var m=process.env.REDIS_HOST,d=process.env.REDIS_PORT?parseInt(process.env.REDIS_PORT,10):6379;console.log("Connecting to redis:",m,d),s=new i.Redis(d,m)}var p=/*#__PURE__*/function(){function e(){this.network="bsv"}var t=e.prototype;return t.getRawTx=function(e){try{var t;return Promise.resolve(null==(t=s)?void 0:t.getBuffer("rawtx:"+e)).then(function(t){var r=function(){if(!t){var r=new o.JungleBusClient("https://junglebus.gorillapool.io");return Promise.resolve(r.GetTransaction(e)).then(function(r){var n;t=Buffer.from(r.transaction,"base64"),null==(n=s)||n.set("rawtx:"+e,t)})}}();return r&&r.then?r.then(function(){return t}):t})}catch(e){return Promise.reject(e)}},t.getBlockchainInfo=function(){try{return Promise.resolve(h.default("https://api.whatsonchain.com/v1/bsv/main/block/headers")).then(function(e){if(!e.ok)throw c.default(e.status,e.statusText);return Promise.resolve(e.json()).then(function(e){return{height:e[0].height,hash:e[0].hash}})})}catch(e){return Promise.reject(e)}},t.getBlockByHeight=function(e){try{return Promise.resolve(h.default("https://api.whatsonchain.com/v1/bsv/main/block/height/"+e)).then(function(t){return Promise.resolve(t.json()).then(function(t){return{height:e,hash:t.hash}})})}catch(e){return Promise.reject(e)}},t.getBlockByHash=function(e){try{return Promise.resolve(h.default("https://api.whatsonchain.com/v1/bsv/main/block/hash/"+e)).then(function(t){return Promise.resolve(t.json()).then(function(t){return{height:t.height,hash:e}})})}catch(e){return Promise.reject(e)}},e}(),g=function(e,r){void 0===r&&(r=!1);try{var n,o=function(e){if(!n)throw new c.default.NotFound;return n};console.log("loadInscription",e);var i=function(){if(e.match(/^[0-9a-fA-F]{64}_\d*$/)){var o=e.split("_"),i=o[0],u=o[1];return console.log("BSV:",i,u),Promise.resolve(O.getRawTx(i)).then(function(o){if(!o)throw new Error("No raw tx found");var a=t.Tx.fromBuffer(o),s=parseInt(u,10),f=a.txOuts[s].script;if(!f)throw new c.default.NotFound;n=B(f);var l=function(){if(n&&r){var t=function(t,r){try{var o=Promise.resolve(h.default("https://ordinals.gorillapool.io/api/inscriptions/outpoint/"+e)).then(function(e){return Promise.resolve(e.json()).then(function(e){return Promise.resolve(O.getBlockByHeight(e.height)).then(function(t){n.meta={height:e.height,MAP:e.MAP,hash:t.hash,txid:i,v:s}})})})}catch(e){return}return o&&o.then?o.then(void 0,function(){}):o}();if(t&&t.then)return t.then(function(){})}}();if(l&&l.then)return l.then(function(){})})}throw new Error("Invalid Pointer")}();return Promise.resolve(i&&i.then?i.then(o):o())}catch(e){return Promise.reject(e)}},P=function(e){try{var t="_ordfs."+e;return Promise.resolve(f.resolveTxt(t)).then(function(e){var r="";console.log("Lookup Up:",t);e:for(var n,o=v(e);!(n=o()).done;){for(var i,u=v(n.value);!(i=u()).done;){var a=i.value;if(a.startsWith("ordfs=")){console.log("Elem:",a),r=a.slice(6),console.log("Origin:",r);break e}}if(!r)throw new c.default.NotFound}return r})}catch(e){return Promise.reject(e)}},y=function(e,t){try{if("bsv"===e)return Promise.resolve(O.getRawTx(t));throw new c.default.NotFound("Network Not Found")}catch(e){return Promise.reject(e)}},w=function(e,t){try{if("bsv"===e)return Promise.resolve(O.getBlockByHash(t));throw new c.default.NotFound("Network Not Found")}catch(e){return Promise.reject(e)}},b=function(e,t){try{if("bsv"===e)return Promise.resolve(O.getBlockByHeight(t));throw new c.default.NotFound("Network Not Found")}catch(e){return Promise.reject(e)}},k=function(e){try{if("bsv"===e)return Promise.resolve(O.getBlockchainInfo());throw new c.default.NotFound("Network Not Found")}catch(e){return Promise.reject(e)}},j=Buffer.from("19HxigV4QyBv3tHpQVcUEQyq1pzZVdoAut"),x=Buffer.from("ord"),O=new p;function B(e){for(var r,n=0,o=0,i=0,u="application/octet-stream",a=Buffer.alloc(0),s=v(e.chunks.entries());!(r=s()).done;){var c,f,h=r.value,l=h[0],m=h[1];if(null!=(c=m.buf)&&c.equals(j)&&e.chunks.length>l+2)return{data:a=e.chunks[l+1].buf,type:u=e.chunks[l+2].buf.toString()};if(m.opCodeNum===t.OpCode.OP_FALSE&&(n=l),m.opCodeNum===t.OpCode.OP_IF&&(o=l),null!=(f=m.buf)&&f.equals(x)&&n===l-2&&o===l-1){i=l;break}}for(var d=i+1;d<e.chunks.length;d++)switch(e.chunks[d].opCodeNum){case t.OpCode.OP_FALSE:for(;(null==(p=e.chunks[d+1])?void 0:p.opCodeNum)>=1&&(null==(g=e.chunks[d+1])?void 0:g.opCodeNum)<=t.OpCode.OP_PUSHDATA4;){var p,g;a=Buffer.concat([a,e.chunks[d+1].buf]),d++}break;case 1:if(1!=e.chunks[d].buf[0])return;case t.OpCode.OP_TRUE:u=e.chunks[d+1].buf.toString("utf8"),d++;break;case t.OpCode.OP_ENDIF:return{type:u,data:a};default:return}return{type:u,data:a}}function N(e,t){try{var r=e()}catch(e){return t(e)}return r&&r.then?r.then(void 0,t):r}function S(e,t,r){void 0===r&&(r=!0),t.header("Content-Type",e.type||""),e.meta&&t.header("ordfs-meta",JSON.stringify(e.meta)),r&&!e.meta&&t.header("Cache-Control","public,immutable,max-age=31536000"),t.status(200).send(e.data)}exports.RegisterRoutes=function(e){var t=function(e,t,r){try{return Promise.resolve(N(function(){var r=e.params.pointer,n=e.params.filename;return Promise.resolve(g(r)).then(function(o){var i=JSON.parse(o.data.toString("utf8"));if(!i[n])throw new c.default.NotFound;return r=i[n].startsWith("ord://")?i[n].slice(6):i[n],Promise.resolve(g(r,e.query.meta)).then(function(e){S(e,t,!0)})})},function(e){r(e)}))}catch(e){return Promise.reject(e)}};e.get("/",function(e,t){try{var r,n,o=function(o){return r?o:N(function(){return Promise.resolve(g(n)).then(function(r){var n;"ord-fs/json"!==r.type||e.query.raw?S(r,t,!1):null==(n=e.res)||n.redirect("index.html")})},function(){t.render("pages/404")})},i=N(function(){return Promise.resolve(P(e.hostname)).then(function(e){n=e})},function(){t.render("pages/index"),r=1});return Promise.resolve(i&&i.then?i.then(o):o(i))}catch(e){return Promise.reject(e)}}),e.get("/v1/:network/block/latest",function(e,t,r){try{var n=N(function(){var r=t.json;return Promise.resolve(k(e.params.network)).then(function(e){r.call(t,e)})},function(e){r(e)});return Promise.resolve(n&&n.then?n.then(function(){}):void 0)}catch(e){return Promise.reject(e)}}),e.get("/v1/:network/block/height/:height",function(e,t,r){try{var n=N(function(){var r=t.json;return Promise.resolve(b(e.params.network,parseInt(e.params.height,10))).then(function(e){r.call(t,e)})},function(e){r(e)});return Promise.resolve(n&&n.then?n.then(function(){}):void 0)}catch(e){return Promise.reject(e)}}),e.get("/v1/:network/block/hash/:hash",function(e,t,r){try{var n=N(function(){var r=t.json;return Promise.resolve(w(e.params.network,e.params.hash)).then(function(e){r.call(t,e)})},function(e){r(e)});return Promise.resolve(n&&n.then?n.then(function(){}):void 0)}catch(e){return Promise.reject(e)}}),e.get("/v1/:network/tx/:txid",function(e,t){try{t.set("Content-type","application/octet-stream");var r=t.send;return Promise.resolve(y(e.params.network,e.params.txid)).then(function(e){r.call(t,e)})}catch(e){return Promise.reject(e)}}),e.get("/:filename",function(e,t,r){try{var n,o=e.params.filename;return Promise.resolve(N(function(){function r(e){if(n)return e;S(u,t,a)}var i,u,a=!0,s=N(function(){return Promise.resolve(g(o,e.query.meta)).then(function(t){var r;"ord-fs/json"!==(u=t).type||e.query.raw||(null==(r=e.res)||r.redirect("/"+o+"/index.html"),n=1)})},function(t){return console.error("Outpoint Error",o,t.message),Promise.resolve(P(e.hostname)).then(function(t){return i=t,Promise.resolve(g(i)).then(function(t){var r=JSON.parse(t.data.toString("utf8"));if(!r[o])throw new c.default.NotFound;return i=r[o].slice(6),Promise.resolve(g(i,e.query.meta)).then(function(e){u=e,a=!1})})})});return s&&s.then?s.then(r):r(s)},function(e){r(e)}))}catch(e){return Promise.reject(e)}}),e.get("/content/:pointer",function(e,t,r){try{var n=e.params.pointer;return Promise.resolve(N(function(){return Promise.resolve(g(n,e.query.meta)).then(function(r){var o;"ord-fs/json"!==r.type||e.query.raw?S(r,t,!0):null==(o=e.res)||o.redirect("/"+n+"/index.html")})},function(e){r(e)}))}catch(e){return Promise.reject(e)}}),e.get("/preview/:b64HtmlData",function(e,t,r){try{try{var n=Buffer.from(e.params.b64HtmlData,"base64").toString("utf8");t.render("pages/preview",{htmlData:n})}catch(e){r(e)}return Promise.resolve()}catch(e){return Promise.reject(e)}}),e.get("/:pointer/:filename",t),e.get("/content/:pointer/:filename",t)},exports.getBlockByHash=w,exports.getBlockByHeight=b,exports.getLatestBlock=k,exports.getRawTx=y,exports.loadInscription=g,exports.loadPointerFromDNS=P,exports.parseScript=B;
+var e = require("http-errors"),
+	t = require("@ts-bitcoin/core"),
+	r = require("dns/promises"),
+	n = require("cross-fetch"),
+	o = require("@gorillapool/js-junglebus"),
+	i = require("ioredis");
+function u(e) {
+	return e && "object" == typeof e && "default" in e ? e : { default: e };
+}
+function a(e) {
+	if (e && e.__esModule) return e;
+	var t = Object.create(null);
+	return (
+		e &&
+			Object.keys(e).forEach(function (r) {
+				if ("default" !== r) {
+					var n = Object.getOwnPropertyDescriptor(e, r);
+					Object.defineProperty(
+						t,
+						r,
+						n.get
+							? n
+							: {
+									enumerable: !0,
+									get: function () {
+										return e[r];
+									},
+								},
+					);
+				}
+			}),
+		(t.default = e),
+		t
+	);
+}
+var s,
+	c = /*#__PURE__*/ u(e),
+	f = /*#__PURE__*/ a(r),
+	h = /*#__PURE__*/ u(n);
+function l(e, t) {
+	(null == t || t > e.length) && (t = e.length);
+	for (var r = 0, n = new Array(t); r < t; r++) n[r] = e[r];
+	return n;
+}
+function v(e, t) {
+	var r =
+		("undefined" != typeof Symbol && e[Symbol.iterator]) || e["@@iterator"];
+	if (r) return (r = r.call(e)).next.bind(r);
+	if (
+		Array.isArray(e) ||
+		(r = (function (e, t) {
+			if (e) {
+				if ("string" == typeof e) return l(e, t);
+				var r = Object.prototype.toString.call(e).slice(8, -1);
+				return (
+					"Object" === r && e.constructor && (r = e.constructor.name),
+					"Map" === r || "Set" === r
+						? Array.from(e)
+						: "Arguments" === r ||
+								/^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(r)
+							? l(e, t)
+							: void 0
+				);
+			}
+		})(e)) ||
+		(t && e && "number" == typeof e.length)
+	) {
+		r && (e = r);
+		var n = 0;
+		return function () {
+			return n >= e.length ? { done: !0 } : { done: !1, value: e[n++] };
+		};
+	}
+	throw new TypeError(
+		"Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.",
+	);
+}
+if (process.env.REDIS_HOST) {
+	var m = process.env.REDIS_HOST,
+		d = process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT, 10) : 6379;
+	console.log("Connecting to redis:", m, d), (s = new i.Redis(d, m));
+}
+var p = /*#__PURE__*/ (function () {
+		function e() {
+			this.network = "bsv";
+		}
+		var t = e.prototype;
+		return (
+			(t.getRawTx = function (e) {
+				try {
+					var t;
+					return Promise.resolve(
+						null == (t = s) ? void 0 : t.getBuffer("rawtx:" + e),
+					).then(function (t) {
+						var r = (function () {
+							if (!t) {
+								var r = new o.JungleBusClient(
+									"https://junglebus.gorillapool.io",
+								);
+								return Promise.resolve(r.GetTransaction(e)).then(function (r) {
+									var n;
+									(t = Buffer.from(r.transaction, "base64")),
+										null == (n = s) || n.set("rawtx:" + e, t);
+								});
+							}
+						})();
+						return r && r.then
+							? r.then(function () {
+									return t;
+								})
+							: t;
+					});
+				} catch (e) {
+					return Promise.reject(e);
+				}
+			}),
+			(t.getBlockchainInfo = function () {
+				try {
+					return Promise.resolve(
+						h.default("https://api.whatsonchain.com/v1/bsv/main/block/headers"),
+					).then(function (e) {
+						if (!e.ok) throw c.default(e.status, e.statusText);
+						return Promise.resolve(e.json()).then(function (e) {
+							return { height: e[0].height, hash: e[0].hash };
+						});
+					});
+				} catch (e) {
+					return Promise.reject(e);
+				}
+			}),
+			(t.getBlockByHeight = function (e) {
+				try {
+					return Promise.resolve(
+						h.default(
+							"https://api.whatsonchain.com/v1/bsv/main/block/height/" + e,
+						),
+					).then(function (t) {
+						return Promise.resolve(t.json()).then(function (t) {
+							return { height: e, hash: t.hash };
+						});
+					});
+				} catch (e) {
+					return Promise.reject(e);
+				}
+			}),
+			(t.getBlockByHash = function (e) {
+				try {
+					return Promise.resolve(
+						h.default(
+							"https://api.whatsonchain.com/v1/bsv/main/block/hash/" + e,
+						),
+					).then(function (t) {
+						return Promise.resolve(t.json()).then(function (t) {
+							return { height: t.height, hash: e };
+						});
+					});
+				} catch (e) {
+					return Promise.reject(e);
+				}
+			}),
+			e
+		);
+	})(),
+	g = function (e, r) {
+		void 0 === r && (r = !1);
+		try {
+			var n,
+				o = function (e) {
+					if (!n) throw new c.default.NotFound();
+					return n;
+				};
+			console.log("loadInscription", e);
+			var i = (function () {
+				if (e.match(/^[0-9a-fA-F]{64}_\d*$/)) {
+					var o = e.split("_"),
+						i = o[0],
+						u = o[1];
+					return (
+						console.log("BSV:", i, u),
+						Promise.resolve(O.getRawTx(i)).then(function (o) {
+							if (!o) throw new Error("No raw tx found");
+							var a = t.Tx.fromBuffer(o),
+								s = parseInt(u, 10),
+								f = a.txOuts[s].script;
+							if (!f) throw new c.default.NotFound();
+							n = B(f);
+							var l = (function () {
+								if (n && r) {
+									var t = (function (t, r) {
+										try {
+											var o = Promise.resolve(
+												h.default(
+													"https://ordinals.gorillapool.io/api/inscriptions/outpoint/" +
+														e,
+												),
+											).then(function (e) {
+												return Promise.resolve(e.json()).then(function (e) {
+													return Promise.resolve(
+														O.getBlockByHeight(e.height),
+													).then(function (t) {
+														n.meta = {
+															height: e.height,
+															MAP: e.MAP,
+															hash: t.hash,
+															txid: i,
+															v: s,
+														};
+													});
+												});
+											});
+										} catch (e) {
+											return;
+										}
+										return o && o.then ? o.then(void 0, function () {}) : o;
+									})();
+									if (t && t.then) return t.then(function () {});
+								}
+							})();
+							if (l && l.then) return l.then(function () {});
+						})
+					);
+				}
+				throw new Error("Invalid Pointer");
+			})();
+			return Promise.resolve(i && i.then ? i.then(o) : o());
+		} catch (e) {
+			return Promise.reject(e);
+		}
+	},
+	P = function (e) {
+		try {
+			var t = "_ordfs." + e;
+			return Promise.resolve(f.resolveTxt(t)).then(function (e) {
+				var r = "";
+				console.log("Lookup Up:", t);
+				e: for (var n, o = v(e); !(n = o()).done; ) {
+					for (var i, u = v(n.value); !(i = u()).done; ) {
+						var a = i.value;
+						if (a.startsWith("ordfs=")) {
+							console.log("Elem:", a),
+								(r = a.slice(6)),
+								console.log("Origin:", r);
+							break e;
+						}
+					}
+					if (!r) throw new c.default.NotFound();
+				}
+				return r;
+			});
+		} catch (e) {
+			return Promise.reject(e);
+		}
+	},
+	y = function (e, t) {
+		try {
+			if ("bsv" === e) return Promise.resolve(O.getRawTx(t));
+			throw new c.default.NotFound("Network Not Found");
+		} catch (e) {
+			return Promise.reject(e);
+		}
+	},
+	w = function (e, t) {
+		try {
+			if ("bsv" === e) return Promise.resolve(O.getBlockByHash(t));
+			throw new c.default.NotFound("Network Not Found");
+		} catch (e) {
+			return Promise.reject(e);
+		}
+	},
+	b = function (e, t) {
+		try {
+			if ("bsv" === e) return Promise.resolve(O.getBlockByHeight(t));
+			throw new c.default.NotFound("Network Not Found");
+		} catch (e) {
+			return Promise.reject(e);
+		}
+	},
+	k = function (e) {
+		try {
+			if ("bsv" === e) return Promise.resolve(O.getBlockchainInfo());
+			throw new c.default.NotFound("Network Not Found");
+		} catch (e) {
+			return Promise.reject(e);
+		}
+	},
+	j = Buffer.from("19HxigV4QyBv3tHpQVcUEQyq1pzZVdoAut"),
+	x = Buffer.from("ord"),
+	O = new p();
+function B(e) {
+	for (
+		var r,
+			n = 0,
+			o = 0,
+			i = 0,
+			u = "application/octet-stream",
+			a = Buffer.alloc(0),
+			s = v(e.chunks.entries());
+		!(r = s()).done;
+	) {
+		var c,
+			f,
+			h = r.value,
+			l = h[0],
+			m = h[1];
+		if (null != (c = m.buf) && c.equals(j) && e.chunks.length > l + 2)
+			return {
+				data: (a = e.chunks[l + 1].buf),
+				type: (u = e.chunks[l + 2].buf.toString()),
+			};
+		if (
+			(m.opCodeNum === t.OpCode.OP_FALSE && (n = l),
+			m.opCodeNum === t.OpCode.OP_IF && (o = l),
+			null != (f = m.buf) && f.equals(x) && n === l - 2 && o === l - 1)
+		) {
+			i = l;
+			break;
+		}
+	}
+	for (var d = i + 1; d < e.chunks.length; d++)
+		switch (e.chunks[d].opCodeNum) {
+			case t.OpCode.OP_FALSE:
+				for (
+					;
+					(null == (p = e.chunks[d + 1]) ? void 0 : p.opCodeNum) >= 1 &&
+					(null == (g = e.chunks[d + 1]) ? void 0 : g.opCodeNum) <=
+						t.OpCode.OP_PUSHDATA4;
+				) {
+					var p, g;
+					(a = Buffer.concat([a, e.chunks[d + 1].buf])), d++;
+				}
+				break;
+			case 1:
+				if (1 != e.chunks[d].buf[0]) return;
+			case t.OpCode.OP_TRUE:
+				(u = e.chunks[d + 1].buf.toString("utf8")), d++;
+				break;
+			case t.OpCode.OP_ENDIF:
+				return { type: u, data: a };
+			default:
+				return;
+		}
+	return { type: u, data: a };
+}
+function N(e, t) {
+	try {
+		var r = e();
+	} catch (e) {
+		return t(e);
+	}
+	return r && r.then ? r.then(void 0, t) : r;
+}
+function S(e, t, r) {
+	void 0 === r && (r = !0),
+		t.header("Content-Type", e.type || ""),
+		e.meta && t.header("ordfs-meta", JSON.stringify(e.meta)),
+		r &&
+			!e.meta &&
+			t.header("Cache-Control", "public,immutable,max-age=31536000"),
+		t.status(200).send(e.data);
+}
+(exports.RegisterRoutes = function (e) {
+	var t = function (e, t, r) {
+		try {
+			return Promise.resolve(
+				N(
+					function () {
+						var r = e.params.pointer,
+							n = e.params.filename;
+						return Promise.resolve(g(r)).then(function (o) {
+							var i = JSON.parse(o.data.toString("utf8"));
+							if (!i[n]) throw new c.default.NotFound();
+							return (
+								(r = i[n].startsWith("ord://") ? i[n].slice(6) : i[n]),
+								Promise.resolve(g(r, e.query.meta)).then(function (e) {
+									S(e, t, !0);
+								})
+							);
+						});
+					},
+					function (e) {
+						r(e);
+					},
+				),
+			);
+		} catch (e) {
+			return Promise.reject(e);
+		}
+	};
+	e.get("/", function (e, t) {
+		try {
+			var r,
+				n,
+				o = function (o) {
+					return r
+						? o
+						: N(
+								function () {
+									return Promise.resolve(g(n)).then(function (r) {
+										var n;
+										"ord-fs/json" !== r.type || e.query.raw
+											? S(r, t, !1)
+											: null == (n = e.res) || n.redirect("index.html");
+									});
+								},
+								function () {
+									t.render("pages/404");
+								},
+							);
+				},
+				i = N(
+					function () {
+						return Promise.resolve(P(e.hostname)).then(function (e) {
+							n = e;
+						});
+					},
+					function () {
+						t.render("pages/index"), (r = 1);
+					},
+				);
+			return Promise.resolve(i && i.then ? i.then(o) : o(i));
+		} catch (e) {
+			return Promise.reject(e);
+		}
+	}),
+		e.get("/v1/:network/block/latest", function (e, t, r) {
+			try {
+				var n = N(
+					function () {
+						var r = t.json;
+						return Promise.resolve(k(e.params.network)).then(function (e) {
+							r.call(t, e);
+						});
+					},
+					function (e) {
+						r(e);
+					},
+				);
+				return Promise.resolve(n && n.then ? n.then(function () {}) : void 0);
+			} catch (e) {
+				return Promise.reject(e);
+			}
+		}),
+		e.get("/v1/:network/block/height/:height", function (e, t, r) {
+			try {
+				var n = N(
+					function () {
+						var r = t.json;
+						return Promise.resolve(
+							b(e.params.network, parseInt(e.params.height, 10)),
+						).then(function (e) {
+							r.call(t, e);
+						});
+					},
+					function (e) {
+						r(e);
+					},
+				);
+				return Promise.resolve(n && n.then ? n.then(function () {}) : void 0);
+			} catch (e) {
+				return Promise.reject(e);
+			}
+		}),
+		e.get("/v1/:network/block/hash/:hash", function (e, t, r) {
+			try {
+				var n = N(
+					function () {
+						var r = t.json;
+						return Promise.resolve(w(e.params.network, e.params.hash)).then(
+							function (e) {
+								r.call(t, e);
+							},
+						);
+					},
+					function (e) {
+						r(e);
+					},
+				);
+				return Promise.resolve(n && n.then ? n.then(function () {}) : void 0);
+			} catch (e) {
+				return Promise.reject(e);
+			}
+		}),
+		e.get("/v1/:network/tx/:txid", function (e, t) {
+			try {
+				t.set("Content-type", "application/octet-stream");
+				var r = t.send;
+				return Promise.resolve(y(e.params.network, e.params.txid)).then(
+					function (e) {
+						r.call(t, e);
+					},
+				);
+			} catch (e) {
+				return Promise.reject(e);
+			}
+		}),
+		e.get("/:filename", function (e, t, r) {
+			try {
+				var n,
+					o = e.params.filename;
+				return Promise.resolve(
+					N(
+						function () {
+							function r(e) {
+								if (n) return e;
+								S(u, t, a);
+							}
+							var i,
+								u,
+								a = !0,
+								s = N(
+									function () {
+										return Promise.resolve(g(o, e.query.meta)).then(
+											function (t) {
+												var r;
+												"ord-fs/json" !== (u = t).type ||
+													e.query.raw ||
+													(null == (r = e.res) ||
+														r.redirect("/" + o + "/index.html"),
+													(n = 1));
+											},
+										);
+									},
+									function (t) {
+										return (
+											console.error("Outpoint Error", o, t.message),
+											Promise.resolve(P(e.hostname)).then(function (t) {
+												return (
+													(i = t),
+													Promise.resolve(g(i)).then(function (t) {
+														var r = JSON.parse(t.data.toString("utf8"));
+														if (!r[o]) throw new c.default.NotFound();
+														return (
+															(i = r[o].slice(6)),
+															Promise.resolve(g(i, e.query.meta)).then(
+																function (e) {
+																	(u = e), (a = !1);
+																},
+															)
+														);
+													})
+												);
+											})
+										);
+									},
+								);
+							return s && s.then ? s.then(r) : r(s);
+						},
+						function (e) {
+							r(e);
+						},
+					),
+				);
+			} catch (e) {
+				return Promise.reject(e);
+			}
+		}),
+		e.get("/content/:pointer", function (e, t, r) {
+			try {
+				var n = e.params.pointer;
+				return Promise.resolve(
+					N(
+						function () {
+							return Promise.resolve(g(n, e.query.meta)).then(function (r) {
+								var o;
+								"ord-fs/json" !== r.type || e.query.raw
+									? S(r, t, !0)
+									: null == (o = e.res) || o.redirect("/" + n + "/index.html");
+							});
+						},
+						function (e) {
+							r(e);
+						},
+					),
+				);
+			} catch (e) {
+				return Promise.reject(e);
+			}
+		}),
+		e.get("/preview/:b64HtmlData", function (e, t, r) {
+			try {
+				try {
+					var n = Buffer.from(e.params.b64HtmlData, "base64").toString("utf8");
+					t.render("pages/preview", { htmlData: n });
+				} catch (e) {
+					r(e);
+				}
+				return Promise.resolve();
+			} catch (e) {
+				return Promise.reject(e);
+			}
+		}),
+		e.get("/:pointer/:filename", t),
+		e.get("/content/:pointer/:filename", t);
+}),
+	(exports.getBlockByHash = w),
+	(exports.getBlockByHeight = b),
+	(exports.getLatestBlock = k),
+	(exports.getRawTx = y),
+	(exports.loadInscription = g),
+	(exports.loadPointerFromDNS = P),
+	(exports.parseScript = B);
 //# sourceMappingURL=index.cjs.map

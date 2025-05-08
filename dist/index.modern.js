@@ -1,2 +1,277 @@
-import t from"http-errors";import{Tx as o,OpCode as e}from"@ts-bitcoin/core";import*as n from"dns/promises";import a from"cross-fetch";import{JungleBusClient as r}from"@gorillapool/js-junglebus";import{Redis as s}from"ioredis";let i;if(process.env.REDIS_HOST){const t=process.env.REDIS_HOST,o=process.env.REDIS_PORT?parseInt(process.env.REDIS_PORT,10):6379;console.log("Connecting to redis:",t,o),i=new s(o,t)}const c=Buffer.from("19HxigV4QyBv3tHpQVcUEQyq1pzZVdoAut"),h=Buffer.from("ord");let u=new class{constructor(){this.network="bsv"}async getRawTx(t){var o;let e=await(null==(o=i)?void 0:o.getBuffer(`rawtx:${t}`));if(!e){var n;const o=new r("https://junglebus.gorillapool.io"),a=await o.GetTransaction(t);e=Buffer.from(a.transaction,"base64"),null==(n=i)||n.set(`rawtx:${t}`,e)}return e}async getBlockchainInfo(){const o=await a("https://api.whatsonchain.com/v1/bsv/main/block/headers");if(!o.ok)throw t(o.status,o.statusText);const e=await o.json();return{height:e[0].height,hash:e[0].hash}}async getBlockByHeight(t){const o=await a(`https://api.whatsonchain.com/v1/bsv/main/block/height/${t}`);return{height:t,hash:(await o.json()).hash}}async getBlockByHash(t){const o=await a(`https://api.whatsonchain.com/v1/bsv/main/block/hash/${t}`);return{height:(await o.json()).height,hash:t}}};async function f(o){if("bsv"===o)return u.getBlockchainInfo();throw new t.NotFound("Network Not Found")}async function l(o,e){if("bsv"===o)return u.getBlockByHeight(e);throw new t.NotFound("Network Not Found")}async function p(o,e){if("bsv"===o)return u.getBlockByHash(e);throw new t.NotFound("Network Not Found")}async function w(o,e){if("bsv"===o)return u.getRawTx(e);throw new t.NotFound("Network Not Found")}async function m(o){const e=`_ordfs.${o}`,a=await n.resolveTxt(e);let r="";console.log("Lookup Up:",e);t:for(const o of a){for(const t of o)if(t.startsWith("ordfs=")){console.log("Elem:",t),r=t.slice(6),console.log("Origin:",r);break t}if(!r)throw new t.NotFound}return r}async function d(e,n=!1){let r;if(console.log("loadInscription",e),!e.match(/^[0-9a-fA-F]{64}_\d*$/))throw new Error("Invalid Pointer");{const[s,i]=e.split("_");console.log("BSV:",s,i);const c=await u.getRawTx(s);if(!c)throw new Error("No raw tx found");const h=o.fromBuffer(c),f=parseInt(i,10),l=h.txOuts[f].script;if(!l)throw new t.NotFound;if(r=g(l),r&&n)try{const t=`https://ordinals.gorillapool.io/api/inscriptions/outpoint/${e}`,o=await a(t),n=await o.json(),{hash:i}=await u.getBlockByHeight(n.height);r.meta={height:n.height,MAP:n.MAP,hash:i,txid:s,v:f}}catch(t){}}if(!r)throw new t.NotFound;return r}function g(t){let o=0,n=0,a=0,r="application/octet-stream",s=Buffer.alloc(0);for(const[f,l]of t.chunks.entries()){var i,u;if(null!=(i=l.buf)&&i.equals(c)&&t.chunks.length>f+2)return s=t.chunks[f+1].buf,r=t.chunks[f+2].buf.toString(),{data:s,type:r};if(l.opCodeNum===e.OP_FALSE&&(o=f),l.opCodeNum===e.OP_IF&&(n=f),null!=(u=l.buf)&&u.equals(h)&&o===f-2&&n===f-1){a=f;break}}for(let o=a+1;o<t.chunks.length;o++)switch(t.chunks[o].opCodeNum){case e.OP_FALSE:for(;(null==(f=t.chunks[o+1])?void 0:f.opCodeNum)>=1&&(null==(l=t.chunks[o+1])?void 0:l.opCodeNum)<=e.OP_PUSHDATA4;){var f,l;s=Buffer.concat([s,t.chunks[o+1].buf]),o++}break;case 1:if(1!=t.chunks[o].buf[0])return;case e.OP_TRUE:r=t.chunks[o+1].buf.toString("utf8"),o++;break;case e.OP_ENDIF:return{type:r,data:s};default:return}return{type:r,data:s}}function y(t,o,e=!0){o.header("Content-Type",t.type||""),t.meta&&o.header("ordfs-meta",JSON.stringify(t.meta)),e&&!t.meta&&o.header("Cache-Control","public,immutable,max-age=31536000"),o.status(200).send(t.data)}function k(o){async function e(o,e,n){try{let n=o.params.pointer;const a=o.params.filename,r=await d(n),s=JSON.parse(r.data.toString("utf8"));if(!s[a])throw new t.NotFound;n=s[a].startsWith("ord://")?s[a].slice(6):s[a],y(await d(n,o.query.meta),e,!0)}catch(t){n(t)}}o.get("/",async(t,o)=>{let e;try{e=await m(t.hostname)}catch(t){return void o.render("pages/index")}try{const a=await d(e);var n;if("ord-fs/json"===a.type&&!t.query.raw)return void(null==(n=t.res)||n.redirect("index.html"));y(a,o,!1)}catch(t){o.render("pages/404")}}),o.get("/v1/:network/block/latest",async(t,o,e)=>{try{o.json(await f(t.params.network))}catch(t){e(t)}}),o.get("/v1/:network/block/height/:height",async(t,o,e)=>{try{o.json(await l(t.params.network,parseInt(t.params.height,10)))}catch(t){e(t)}}),o.get("/v1/:network/block/hash/:hash",async(t,o,e)=>{try{o.json(await p(t.params.network,t.params.hash))}catch(t){e(t)}}),o.get("/v1/:network/tx/:txid",async(t,o)=>{o.set("Content-type","application/octet-stream"),o.send(await w(t.params.network,t.params.txid))}),o.get("/:filename",async function(o,e,n){const a=o.params.filename;try{let n,s,i=!0;try{var r;if(s=await d(a,o.query.meta),"ord-fs/json"===s.type&&!o.query.raw)return void(null==(r=o.res)||r.redirect(`/${a}/index.html`))}catch(e){console.error("Outpoint Error",a,e.message),n=await m(o.hostname);const r=await d(n),c=JSON.parse(r.data.toString("utf8"));if(!c[a])throw new t.NotFound;n=c[a].slice(6),s=await d(n,o.query.meta),i=!1}y(s,e,i)}catch(t){n(t)}}),o.get("/content/:pointer",async function(t,o,e){const n=t.params.pointer;try{const e=await d(n,t.query.meta);var a;if("ord-fs/json"===e.type&&!t.query.raw)return void(null==(a=t.res)||a.redirect(`/${n}/index.html`));y(e,o,!0)}catch(t){e(t)}}),o.get("/preview/:b64HtmlData",async function(t,o,e){try{const e=Buffer.from(t.params.b64HtmlData,"base64").toString("utf8");o.render("pages/preview",{htmlData:e})}catch(t){e(t)}}),o.get("/:pointer/:filename",e),o.get("/content/:pointer/:filename",e)}export{k as RegisterRoutes,p as getBlockByHash,l as getBlockByHeight,f as getLatestBlock,w as getRawTx,d as loadInscription,m as loadPointerFromDNS,g as parseScript};
+import { JungleBusClient as r } from "@gorillapool/js-junglebus";
+import { OpCode as e, Tx as o } from "@ts-bitcoin/core";
+import a from "cross-fetch";
+import * as n from "dns/promises";
+import t from "http-errors";
+import { Redis as s } from "ioredis";
+let i;
+if (process.env.REDIS_HOST) {
+	const t = process.env.REDIS_HOST,
+		o = process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT, 10) : 6379;
+	console.log("Connecting to redis:", t, o), (i = new s(o, t));
+}
+const c = Buffer.from("19HxigV4QyBv3tHpQVcUEQyq1pzZVdoAut"),
+	h = Buffer.from("ord");
+let u = new (class {
+	constructor() {
+		this.network = "bsv";
+	}
+	async getRawTx(t) {
+		var o;
+		let e = await (null == (o = i) ? void 0 : o.getBuffer(`rawtx:${t}`));
+		if (!e) {
+			var n;
+			const o = new r("https://junglebus.gorillapool.io"),
+				a = await o.GetTransaction(t);
+			(e = Buffer.from(a.transaction, "base64")),
+				null == (n = i) || n.set(`rawtx:${t}`, e);
+		}
+		return e;
+	}
+	async getBlockchainInfo() {
+		const o = await a("https://api.whatsonchain.com/v1/bsv/main/block/headers");
+		if (!o.ok) throw t(o.status, o.statusText);
+		const e = await o.json();
+		return { height: e[0].height, hash: e[0].hash };
+	}
+	async getBlockByHeight(t) {
+		const o = await a(
+			`https://api.whatsonchain.com/v1/bsv/main/block/height/${t}`,
+		);
+		return { height: t, hash: (await o.json()).hash };
+	}
+	async getBlockByHash(t) {
+		const o = await a(
+			`https://api.whatsonchain.com/v1/bsv/main/block/hash/${t}`,
+		);
+		return { height: (await o.json()).height, hash: t };
+	}
+})();
+async function f(o) {
+	if ("bsv" === o) return u.getBlockchainInfo();
+	throw new t.NotFound("Network Not Found");
+}
+async function l(o, e) {
+	if ("bsv" === o) return u.getBlockByHeight(e);
+	throw new t.NotFound("Network Not Found");
+}
+async function p(o, e) {
+	if ("bsv" === o) return u.getBlockByHash(e);
+	throw new t.NotFound("Network Not Found");
+}
+async function w(o, e) {
+	if ("bsv" === o) return u.getRawTx(e);
+	throw new t.NotFound("Network Not Found");
+}
+async function m(o) {
+	const e = `_ordfs.${o}`,
+		a = await n.resolveTxt(e);
+	let r = "";
+	console.log("Lookup Up:", e);
+	t: for (const o of a) {
+		for (const t of o)
+			if (t.startsWith("ordfs=")) {
+				console.log("Elem:", t), (r = t.slice(6)), console.log("Origin:", r);
+				break t;
+			}
+		if (!r) throw new t.NotFound();
+	}
+	return r;
+}
+async function d(e, n = !1) {
+	let r;
+	if ((console.log("loadInscription", e), !e.match(/^[0-9a-fA-F]{64}_\d*$/)))
+		throw new Error("Invalid Pointer");
+	{
+		const [s, i] = e.split("_");
+		console.log("BSV:", s, i);
+		const c = await u.getRawTx(s);
+		if (!c) throw new Error("No raw tx found");
+		const h = o.fromBuffer(c),
+			f = parseInt(i, 10),
+			l = h.txOuts[f].script;
+		if (!l) throw new t.NotFound();
+		if (((r = g(l)), r && n))
+			try {
+				const t = `https://ordinals.gorillapool.io/api/inscriptions/outpoint/${e}`,
+					o = await a(t),
+					n = await o.json(),
+					{ hash: i } = await u.getBlockByHeight(n.height);
+				r.meta = { height: n.height, MAP: n.MAP, hash: i, txid: s, v: f };
+			} catch (t) {}
+	}
+	if (!r) throw new t.NotFound();
+	return r;
+}
+function g(t) {
+	let o = 0,
+		n = 0,
+		a = 0,
+		r = "application/octet-stream",
+		s = Buffer.alloc(0);
+	for (const [f, l] of t.chunks.entries()) {
+		var i, u;
+		if (null != (i = l.buf) && i.equals(c) && t.chunks.length > f + 2)
+			return (
+				(s = t.chunks[f + 1].buf),
+				(r = t.chunks[f + 2].buf.toString()),
+				{ data: s, type: r }
+			);
+		if (
+			(l.opCodeNum === e.OP_FALSE && (o = f),
+			l.opCodeNum === e.OP_IF && (n = f),
+			null != (u = l.buf) && u.equals(h) && o === f - 2 && n === f - 1)
+		) {
+			a = f;
+			break;
+		}
+	}
+	for (let o = a + 1; o < t.chunks.length; o++)
+		switch (t.chunks[o].opCodeNum) {
+			case e.OP_FALSE:
+				for (
+					;
+					(null == (f = t.chunks[o + 1]) ? void 0 : f.opCodeNum) >= 1 &&
+					(null == (l = t.chunks[o + 1]) ? void 0 : l.opCodeNum) <=
+						e.OP_PUSHDATA4;
+				) {
+					var f, l;
+					(s = Buffer.concat([s, t.chunks[o + 1].buf])), o++;
+				}
+				break;
+			case 1:
+				if (1 != t.chunks[o].buf[0]) return;
+			case e.OP_TRUE:
+				(r = t.chunks[o + 1].buf.toString("utf8")), o++;
+				break;
+			case e.OP_ENDIF:
+				return { type: r, data: s };
+			default:
+				return;
+		}
+	return { type: r, data: s };
+}
+function y(t, o, e = !0) {
+	o.header("Content-Type", t.type || ""),
+		t.meta && o.header("ordfs-meta", JSON.stringify(t.meta)),
+		e &&
+			!t.meta &&
+			o.header("Cache-Control", "public,immutable,max-age=31536000"),
+		o.status(200).send(t.data);
+}
+function k(o) {
+	async function e(o, e, n) {
+		try {
+			let n = o.params.pointer;
+			const a = o.params.filename,
+				r = await d(n),
+				s = JSON.parse(r.data.toString("utf8"));
+			if (!s[a]) throw new t.NotFound();
+			(n = s[a].startsWith("ord://") ? s[a].slice(6) : s[a]),
+				y(await d(n, o.query.meta), e, !0);
+		} catch (t) {
+			n(t);
+		}
+	}
+	o.get("/", async (t, o) => {
+		let e;
+		try {
+			e = await m(t.hostname);
+		} catch (t) {
+			return void o.render("pages/index");
+		}
+		try {
+			const a = await d(e);
+			var n;
+			if ("ord-fs/json" === a.type && !t.query.raw)
+				return void (null == (n = t.res) || n.redirect("index.html"));
+			y(a, o, !1);
+		} catch (t) {
+			o.render("pages/404");
+		}
+	}),
+		o.get("/v1/:network/block/latest", async (t, o, e) => {
+			try {
+				o.json(await f(t.params.network));
+			} catch (t) {
+				e(t);
+			}
+		}),
+		o.get("/v1/:network/block/height/:height", async (t, o, e) => {
+			try {
+				o.json(await l(t.params.network, parseInt(t.params.height, 10)));
+			} catch (t) {
+				e(t);
+			}
+		}),
+		o.get("/v1/:network/block/hash/:hash", async (t, o, e) => {
+			try {
+				o.json(await p(t.params.network, t.params.hash));
+			} catch (t) {
+				e(t);
+			}
+		}),
+		o.get("/v1/:network/tx/:txid", async (t, o) => {
+			o.set("Content-type", "application/octet-stream"),
+				o.send(await w(t.params.network, t.params.txid));
+		}),
+		o.get("/:filename", async function (o, e, n) {
+			const a = o.params.filename;
+			try {
+				let n,
+					s,
+					i = !0;
+				try {
+					var r;
+					if (
+						((s = await d(a, o.query.meta)),
+						"ord-fs/json" === s.type && !o.query.raw)
+					)
+						return void (null == (r = o.res) || r.redirect(`/${a}/index.html`));
+				} catch (e) {
+					console.error("Outpoint Error", a, e.message),
+						(n = await m(o.hostname));
+					const r = await d(n),
+						c = JSON.parse(r.data.toString("utf8"));
+					if (!c[a]) throw new t.NotFound();
+					(n = c[a].slice(6)), (s = await d(n, o.query.meta)), (i = !1);
+				}
+				y(s, e, i);
+			} catch (t) {
+				n(t);
+			}
+		}),
+		o.get("/content/:pointer", async function (t, o, e) {
+			const n = t.params.pointer;
+			try {
+				const e = await d(n, t.query.meta);
+				var a;
+				if ("ord-fs/json" === e.type && !t.query.raw)
+					return void (null == (a = t.res) || a.redirect(`/${n}/index.html`));
+				y(e, o, !0);
+			} catch (t) {
+				e(t);
+			}
+		}),
+		o.get("/preview/:b64HtmlData", async function (t, o, e) {
+			try {
+				const e = Buffer.from(t.params.b64HtmlData, "base64").toString("utf8");
+				o.render("pages/preview", { htmlData: e });
+			} catch (t) {
+				e(t);
+			}
+		}),
+		o.get("/:pointer/:filename", e),
+		o.get("/content/:pointer/:filename", e);
+}
+export {
+	k as RegisterRoutes,
+	p as getBlockByHash,
+	l as getBlockByHeight,
+	f as getLatestBlock,
+	w as getRawTx,
+	d as loadInscription,
+	m as loadPointerFromDNS,
+	g as parseScript,
+};
 //# sourceMappingURL=index.modern.js.map
