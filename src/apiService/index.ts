@@ -123,7 +123,7 @@ export const getPreview = api.raw(
 				throw new Error("Invalid preview URL format");
 			}
 			// Remove potential query parameters
-			const queryIndex = b64HtmlData.indexOf('?');
+			const queryIndex = b64HtmlData.indexOf("?");
 			if (queryIndex !== -1) {
 				b64HtmlData = b64HtmlData.substring(0, queryIndex);
 			}
@@ -135,20 +135,19 @@ export const getPreview = api.raw(
 			const viewPath = join(process.cwd(), "views", "pages", "preview.ejs");
 			const templateData = { htmlData }; // Pass decoded HTML to template
 			const ejsOptions: ejs.Options = {
-				root: join(process.cwd(), "views") // For potential includes in preview.ejs
+				root: join(process.cwd(), "views"), // For potential includes in preview.ejs
 			};
 
 			const html = await ejs.renderFile(viewPath, templateData, ejsOptions);
 
-			resp.writeHead(200, { 'Content-Type': "text/html" });
+			resp.writeHead(200, { "Content-Type": "text/html" });
 			resp.end(html);
-
 		} catch (error) {
 			console.error("Error rendering preview:", error);
-			resp.writeHead(400, { 'Content-Type': 'text/plain' }); // Use 400 for bad input/decode errors
+			resp.writeHead(400, { "Content-Type": "text/plain" }); // Use 400 for bad input/decode errors
 			resp.end(`Error rendering preview: ${(error as Error).message}`);
 		}
-	}
+	},
 );
 
 // Handles /:fileOrPointer for inscriptions, outpoints, or DNS names

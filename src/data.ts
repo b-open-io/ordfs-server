@@ -2,11 +2,7 @@ import { OpCode, type Script, Tx } from "@ts-bitcoin/core";
 import { Redis } from "ioredis";
 import type { File } from "./models/models.js";
 import type { Outpoint } from "./models/outpoint.js";
-import {
-	type ITxProvider,
-	ProxyProvider,
-	RpcProvider,
-} from "./provider.js";
+import { type ITxProvider, ProxyProvider, RpcProvider } from "./provider.js";
 
 let bsvProvider: ITxProvider = new ProxyProvider();
 
