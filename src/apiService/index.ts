@@ -46,6 +46,37 @@ export const fallback = api.raw(
 // (64 hex chars, optionally followed by _ and one or more digits)
 const txidRegex = /^[a-fA-F0-9]{64}(_[0-9]+)?$/;
 
+// --- Helper Function --- 
+// Handles calling bitcoinService and sending the response/error
+async function _handlePointerLookup(pointer: string, resp: ServerResponse) {
+	console.log(`apiService: [_handlePointerLookup] Calling bitcoinService with pointer: ${pointer}`);
+	try {
+		const result = await bitcoinService.loadAndPrepareInscriptionExported(pointer);
+
+		if ('error' in result) {
+			console.error(`apiService: [_handlePointerLookup] Error from bitcoinService for ${pointer}:`, result.error);
+			resp.writeHead(result.statusCode, { 'Content-Type': 'text/plain' });
+			const errorMessage = result.error instanceof Error ? result.error.message : String(result.error);
+			resp.end(`Error: ${errorMessage}`);
+			return;
+		}
+		
+		console.log(`apiService: [_handlePointerLookup] Successfully got data from bitcoinService for ${pointer}`);
+		resp.writeHead(200, result.headers);
+		resp.end(result.file.data);
+	} catch (serviceCallError) {
+		// Catch errors specifically from the service call itself or response writing
+		console.error(`apiService: [_handlePointerLookup] Critical error during service call/response for ${pointer}:`, serviceCallError);
+		// Avoid writing headers again if they were already partially sent
+		if (!resp.headersSent) {
+			resp.writeHead(500, { 'Content-Type': 'text/plain' });
+			resp.end("Internal Server Error during service call");
+		}
+	}
+}
+
+// --- API Endpoints --- 
+
 // Serves the main index.html page using EJS
 export const getRoot = api.raw(
 	{ expose: true, method: "GET", path: "/" },
@@ -150,11 +181,54 @@ export const getPreview = api.raw(
 	},
 );
 
+// Handles /content/:pointer requests specifically for TXID/Outpoints
+export const getContentPointer = api.raw(
+	{ expose: true, method: "GET", path: "/content/:pointer" },
+	async (req: IncomingMessage, resp: ServerResponse) => {
+		let ptr = ""; // pointer
+		try {
+			if (!req.url) {
+				throw new Error("Request URL is missing");
+			}
+			const prefix = "/content/";
+			if (req.url.startsWith(prefix)) {
+				ptr = req.url.substring(prefix.length);
+			} else {
+				throw new Error("Invalid /content/ URL format");
+			}
+			const queryIndex = ptr.indexOf('?');
+			if (queryIndex !== -1) {
+				ptr = ptr.substring(0, queryIndex);
+			}
+			console.log(`apiService: Received request for /content/ pointer: ${ptr}`);
+
+			if (!txidRegex.test(ptr)) {
+				console.warn(`apiService: Invalid format for /content/ pointer: ${ptr}`);
+				resp.writeHead(400, { 'Content-Type': 'text/plain' });
+				resp.end("Bad Request: Invalid TXID/Outpoint format for /content/ path");
+				return;
+			}
+			
+			// Call the shared handler
+			await _handlePointerLookup(ptr, resp);
+
+		} catch (error) {
+			 // Catch errors from URL parsing or format validation before calling the handler
+			 console.error(`apiService: Error in getContentPointer wrapper for ${ptr}:`, error);
+			 if (!resp.headersSent) {
+			    resp.writeHead(500, { 'Content-Type': 'text/plain' });
+			    resp.end(`Internal Server Error: ${(error as Error).message}`);
+             }
+		}
+	}
+);
+
 // Handles /:fileOrPointer for inscriptions, outpoints, or DNS names
 export const getFileOrPointer = api.raw(
 	{ expose: true, method: "GET", path: "/:fileOrPointer" },
 	async (req: IncomingMessage, resp: ServerResponse) => {
 		let fop = ""; // fileOrPointer
+		let finalPointer = "";
 		try {
 			if (!req.url) {
 				throw new Error("Request URL is missing");
@@ -164,10 +238,7 @@ export const getFileOrPointer = api.raw(
 			if (queryIndex !== -1) {
 				fop = fop.substring(0, queryIndex);
 			}
-
 			console.log(`apiService: Received request for fileOrPointer: ${fop}`);
-
-			let finalPointer = "";
 
 			if (txidRegex.test(fop)) {
 				console.log(`apiService: ${fop} looks like a TXID/Outpoint.`);
@@ -179,18 +250,11 @@ export const getFileOrPointer = api.raw(
 				try {
 					const dnsPointer = await loadPointerFromDNS(fop);
 					if (dnsPointer && dnsPointer.length > 0) {
-						// dnsPointer might be an array, or a single string, lib.ts is a bit ambiguous
-						// Assuming it returns a single valid pointer string or throws
-						finalPointer = Array.isArray(dnsPointer)
-							? dnsPointer[0]
-							: dnsPointer;
+						finalPointer = Array.isArray(dnsPointer) ? dnsPointer[0] : dnsPointer;
 						console.log(
 							`apiService: DNS lookup for ${fop} resolved to: ${finalPointer}`,
 						);
 						if (!txidRegex.test(finalPointer)) {
-							console.error(
-								`apiService: DNS resolved to non-TXID format: ${finalPointer}`,
-							);
 							throw new Error(
 								"DNS resolution did not return a valid TXID/Outpoint format.",
 							);
@@ -214,40 +278,16 @@ export const getFileOrPointer = api.raw(
 				return;
 			}
 
-			// Call bitcoinService to get the content
-			console.log(
-				`apiService: Calling bitcoinService with pointer: ${finalPointer}`,
-			);
-			const result =
-				await bitcoinService.loadAndPrepareInscriptionExported(finalPointer);
+			// Call the shared handler
+			await _handlePointerLookup(finalPointer, resp);
 
-			if ("error" in result) {
-				console.error(
-					`apiService: Error from bitcoinService for ${finalPointer}:`,
-					result.error,
-				);
-				resp.writeHead(result.statusCode, { "Content-Type": "text/plain" });
-				// Ensure result.error is an Error instance before accessing .message
-				const errorMessage =
-					result.error instanceof Error
-						? result.error.message
-						: String(result.error);
-				resp.end(`Error: ${errorMessage}`);
-				return;
-			}
-
-			console.log(
-				`apiService: Successfully got data from bitcoinService for ${finalPointer}`,
-			);
-			resp.writeHead(200, result.headers);
-			resp.end(result.file.data);
 		} catch (error) {
-			console.error(
-				`apiService: Critical error in getFileOrPointer handler for ${fop}:`,
-				error,
-			);
-			resp.writeHead(500, { "Content-Type": "text/plain" });
-			resp.end("Internal Server Error");
+			 // Catch errors from URL parsing, format validation, or DNS resolution before calling the handler
+			 console.error(`apiService: Error in getFileOrPointer wrapper for ${fop}:`, error);
+			 if (!resp.headersSent) {
+			    resp.writeHead(500, { 'Content-Type': 'text/plain' });
+			    resp.end(`Internal Server Error: ${(error as Error).message}`);
+             }
 		}
 	},
 );
