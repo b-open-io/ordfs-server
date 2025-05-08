@@ -2,7 +2,9 @@ name: Build and Push Docker Image to GitHub Container Registry
 
 on:
   push:
-    branches: [ main ] # Trigger on push to main branch
+    branches:
+      - main
+      - feature/encore # Add your branch here
 
 permissions:
   contents: read
