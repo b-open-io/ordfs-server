@@ -10,8 +10,22 @@ import {
 } from "./data.js";
 import { type File } from "./models/models.js";
 import { Outpoint } from "./models/outpoint.js";
+import { ServerResponse } from "node:http";
 
 const CACHE_TTL_SECONDS = 60 * 60 * 24; // 24 hours
+
+export function sendFile(file: File, res: ServerResponse, immutable = true) {
+	const headers: Record<string, string> = {}
+	if (file.type) {
+		headers["Content-Type"] = file.type;
+	}
+	if (immutable) {
+		headers["Cache-Control"] = "public,immutable,max-age=31536000";
+	}
+
+	res.writeHead(200, headers);
+	res.end(file.data);
+}
 
 export async function loadPointerFromDNS(hostname: string): Promise<string> {
 	const lookupDomain = `_ordfs.${hostname}`;
@@ -33,54 +47,18 @@ export async function loadPointerFromDNS(hostname: string): Promise<string> {
 
 export async function loadInscription(
 	pointer: string,
-	metadata = false,
 	fuzzy = false,
 ): Promise<File> {
-	console.log("loadInscription", pointer, { metadata, fuzzy });
-
-	const cacheKeyBase = `inscription:${pointer}`;
-	const cacheKeyType = `${cacheKeyBase}:type`;
-	const cacheKeyData = `${cacheKeyBase}:data`;
-
+	console.log("loadInscription", pointer, { fuzzy });
 	if (redis) {
 		try {
-			const execResult = await redis
-				.multi()
-				.get(cacheKeyType)
-				.getBuffer(cacheKeyData)
-				.exec();
-
-			// exec() returns an array of [error, result] tuples
-			const typeResult = execResult?.[0];
-			const dataResult = execResult?.[1];
-
-			const actualCachedType =
-				typeResult && !typeResult[0] ? (typeResult[1] as string | null) : null;
-			const actualCachedData =
-				dataResult && !dataResult[0] ? (dataResult[1] as Buffer | null) : null;
-
-			if (actualCachedType && actualCachedData) {
+			const cached = await redis.hgetall(`f:${pointer}`)
+			if (cached) {
 				console.log(`Cache HIT for pointer: ${pointer}`);
-				const file: File = { type: actualCachedType, data: actualCachedData };
-				if (metadata && pointer.match(/^[0-9a-fA-F]{64}_\d+$/) && file) {
-					try {
-						const url = `https://ordinals.gorillapool.io/api/txos/${pointer}`;
-						const resp = await fetch(url);
-						if (!resp.ok) {
-							throw new Error(
-								`Metadata fetch failed for cached entry ${pointer}: ${resp.status} ${resp.statusText}`,
-							);
-						}
-						const metaJson = await resp.json();
-						const { hash } = await getBlockByHeight(metaJson.height);
-						file.meta = { ...metaJson, hash };
-					} catch (e) {
-						console.warn(
-							`Metadata fetch warning for cached entry ${pointer}: ${(e as Error).message}`,
-						);
-					}
-				}
-				return file;
+				return { 
+					type: cached.type, 
+					data: Buffer.from(cached.data, 'base64') 
+				};
 			}
 			console.log(`Cache MISS for pointer: ${pointer}`);
 		} catch (err) {
@@ -143,35 +121,14 @@ export async function loadInscription(
 		throw new Error("Inscription Not Found");
 	}
 
-	if (metadata && effectivePointer.match(/^[0-9a-fA-F]{64}_\d+$/) && file) {
-		try {
-			const url = `https://ordinals.gorillapool.io/api/txos/${effectivePointer}`;
-			const resp = await fetch(url);
-			if (!resp.ok) {
-				throw new Error(
-					`Metadata fetch failed for ${effectivePointer}: ${resp.status} ${resp.statusText}`,
-				);
-			}
-			const data = await resp.json();
-			const { hash } = await getBlockByHeight(data.height);
-
-			file.meta = {
-				...data,
-				hash,
-			};
-		} catch (e) {
-			console.warn(
-				`Metadata fetch warning for ${effectivePointer}: ${(e as Error).message}`,
-			);
-		}
-	}
-
 	if (redis && file.data && file.type) {
 		try {
-			await redis
-				.multi()
-				.set(cacheKeyType, file.type, "EX", CACHE_TTL_SECONDS)
-				.set(cacheKeyData, file.data, "EX", CACHE_TTL_SECONDS)
+			await redis.multi()
+				.hset(`f:${pointer}`, {
+					type: file.type,
+					data: file.data.toString("base64"),
+				})
+				.expire(`f:${pointer}`, CACHE_TTL_SECONDS)
 				.exec();
 			console.log(`Stored in cache: ${pointer}`);
 		} catch (err) {

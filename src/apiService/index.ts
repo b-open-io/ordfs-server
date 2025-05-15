@@ -5,46 +5,14 @@ import { join } from "node:path";
 import ejs from "ejs"; // Import ejs
 import { api } from "encore.dev/api";
 import * as bitcoinService from "../bitcoinService/index.js"; // Import the bitcoinService
-import { loadPointerFromDNS } from "../lib.js";
+import { loadInscription, loadPointerFromDNS, sendFile } from "../lib.js";
 
-/*
-export const hello = api({ expose: true, method: "GET", path: "/encore-test" }, async () => {
-    await Promise.resolve();
-    // Return a slightly more complex object
-    return {
-        message: "Hello from native Encore!",
-        data: {
-            height: 123,
-            hash: "abc",
-            timestamp: Date.now()
-        },
-        status: "OK"
-    };
-});
-*/
-
-// Ensure Express app can handle requests forwarded by Encore
-// This might require prototype adjustments depending on Express/Encore interaction
-// Object.setPrototypeOf(IncomingMessage.prototype, server.request);
-// Object.setPrototypeOf(ServerResponse.prototype, server.response);
-
-/*
-export const fallback = api.raw(
-    {
-        expose: true,
-        method: "*", // Catch all methods
-        path: "/!path", // Encore's wildcard fallback path
-    },
-    async (req: IncomingMessage, resp: ServerResponse) => {
-        // Directly pass the request to the Express app instance
-        server(req, resp);
-    }
-); 
-*/
 
 // Regular expression to check for typical TXID or Outpoint format
 // (64 hex chars, optionally followed by _ and one or more digits)
 const txidRegex = /^[a-fA-F0-9]{64}(_[0-9]+)?$/;
+
+const { ORDFS_DOMAINS, ORDFS_HOST } = process.env;
 
 // --- Helper Function ---
 // Handles calling bitcoinService and sending the response/error
@@ -93,36 +61,57 @@ async function _handlePointerLookup(pointer: string, resp: ServerResponse) {
 
 // Serves the main index.html page using EJS
 export const getRoot = api.raw(
-	{ expose: true, method: "GET", path: "/" },
-	async (_req: IncomingMessage, resp: ServerResponse) => {
-		try {
-			const viewPath = join(process.cwd(), "views", "pages", "index.ejs");
-			// Data to pass to the EJS template
-			const templateData = {
-				process: {
-					env: {
-						ORDFS_NAME: process.env.ORDFS_NAME || "Ordfs Server", // Provide default
-					},
-				},
-			};
-			// EJS options - specifying the root directory for includes
-			const ejsOptions: ejs.Options = {
-				root: join(process.cwd(), "views"), // Allows includes like <%- include('../partials/head'); %>
-			};
+    { expose: true, method: "GET", path: "/" },
+    async (_req: IncomingMessage, resp: ServerResponse) => {
+        try {
+            // Construct the full URL to parse query parameters
+            const host = _req.headers.host || "http://localhost";
+            // Ensure the base URL has a scheme.
+            const base = host.startsWith("http") ? host : `http://${host}`;
+            const fullUrl = new URL(_req.url || "", base);
+            const queryParams = fullUrl.searchParams;
+            const rawParam = queryParams.get("raw"); // Get the 'raw' query parameter
 
-			const html = await ejs.renderFile(viewPath, templateData, ejsOptions);
+            if (ORDFS_DOMAINS && fullUrl.hostname !== ORDFS_HOST) {
+                const outpoint = await loadPointerFromDNS(fullUrl.hostname);
+                const file = await loadInscription(outpoint);
+                
+                // Use the parsed rawParam here
+                if (file.type === "ord-fs/json" && rawParam === null) { // Check if rawParam is not present
+                    resp.writeHead(302, {Location: `index.html`})
+                    resp.end();
+                    return;
+                }
+                return sendFile(file, resp, false);
+            }
 
-			resp.writeHead(200, {
-				"Content-Type": "text/html",
-				// Content-Length is tricky with dynamic rendering, let Node.js handle it by default
-			});
-			resp.end(html);
-		} catch (error) {
-			console.error("Error rendering index.ejs:", error);
-			resp.writeHead(500, { "Content-Type": "text/plain" });
-			resp.end("Internal Server Error rendering template");
-		}
-	},
+            const viewPath = join(process.cwd(), "views", "pages", "index.ejs");
+            // Data to pass to the EJS template
+            const templateData = {
+                process: {
+                    env: {
+                        ORDFS_NAME: process.env.ORDFS_NAME || "Ordfs Server", // Provide default
+                    },
+                },
+            };
+            // EJS options - specifying the root directory for includes
+            const ejsOptions: ejs.Options = {
+                root: join(process.cwd(), "views"), // Allows includes like <%- include('../partials/head'); %>
+            };
+
+            const html = await ejs.renderFile(viewPath, templateData, ejsOptions);
+
+            resp.writeHead(200, {
+                "Content-Type": "text/html",
+                // Content-Length is tricky with dynamic rendering, let Node.js handle it by default
+            });
+            resp.end(html);
+        } catch (error) {
+            console.error("Error rendering index.ejs:", error);
+            resp.writeHead(500, { "Content-Type": "text/plain" });
+            resp.end("Internal Server Error rendering template");
+        }
+    },
 );
 
 // Serves favicon.ico

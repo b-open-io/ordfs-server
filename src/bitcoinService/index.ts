@@ -12,9 +12,8 @@ export async function loadAndPrepareInscriptionExported(
 	| { error: any; statusCode: number }
 > {
 	try {
-		const meta = false;
 		const fuzzy = true;
-		const file = await loadInscription(pointer, meta, fuzzy);
+		const file = await loadInscription(pointer, fuzzy);
 
 		if (!file || !file.data) {
 			return { error: new Error("File data not found"), statusCode: 404 };
