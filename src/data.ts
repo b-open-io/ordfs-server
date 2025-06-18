@@ -1,36 +1,17 @@
 import { OpCode, type Script, Tx } from "@ts-bitcoin/core";
-import { Transaction } from "bitcore-lib";
-import createError, { NotFound } from "http-errors";
 import { Redis } from "ioredis";
-import type { File } from "./models/models";
-import type { Outpoint } from "./models/outpoint";
-import {
-	BtcProvider,
-	type ITxProvider,
-	ProxyProvider,
-	RpcProvider,
-} from "./provider";
+import type { File } from "./models/models.js";
+import type { Outpoint } from "./models/outpoint.js";
+import { type ITxProvider, ProxyProvider, RpcProvider } from "./provider.js";
 
 let bsvProvider: ITxProvider = new ProxyProvider();
-let btcProvider: ITxProvider = new BtcProvider();
 
 if (process.env.BITCOIN_HOST) {
 	bsvProvider = new RpcProvider(
-		"bsv",
 		process.env.BITCOIN_HOST || "",
 		process.env.BITCOIN_PORT || "8332",
 		process.env.BITCOIN_USER || "",
 		process.env.BITCOIN_PASS || "",
-	);
-}
-
-if (process.env.BTC_HOST) {
-	btcProvider = new RpcProvider(
-		"btc",
-		process.env.BTC_HOST || "",
-		process.env.BTC_PORT || "8332",
-		process.env.BTC_USER || "",
-		process.env.BTC_PASS || "",
 	);
 }
 
@@ -58,24 +39,9 @@ export async function getRawTx(txid: string): Promise<Buffer> {
 				`bsvProvider.getRawTx failed for ${txid}: ${(e as Error).message}`,
 			);
 		}
-		// const url = `http://${BITCOIN_HOST}:${BITCOIN_PORT}/rest/tx/${txid}.bin`
-		// const resp = await fetch(url);
-		// if (!resp.ok) {
-		//     throw createError(resp.status, resp.statusText)
-		// }
-		// rawtx = Buffer.from(await resp.arrayBuffer());
 	}
 	if (!rawtx) {
-		try {
-			rawtx = await btcProvider.getRawTx(txid);
-		} catch (e) {
-			console.warn(
-				`btcProvider.getRawTx failed for ${txid}: ${(e as Error).message}`,
-			);
-		}
-	}
-	if (!rawtx) {
-		throw new NotFound();
+		throw new Error(`Transaction ${txid} not found by BSV provider`);
 	}
 	return rawtx;
 }
@@ -84,42 +50,23 @@ export async function loadTx(txid: string): Promise<Tx> {
 	return Tx.fromBuffer(await getRawTx(txid));
 }
 
-export async function getBlockchainInfo(
-	network: string,
-): Promise<{ height: number; hash: string }> {
-	switch (network) {
-		case "bsv":
-			return bsvProvider.getBlockchainInfo();
-		case "btc":
-			return btcProvider.getBlockchainInfo();
-	}
-	throw new Error("Invalid Network");
+export async function getBlockchainInfo(): Promise<{
+	height: number;
+	hash: string;
+}> {
+	return bsvProvider.getBlockchainInfo();
 }
 
 export async function getBlockByHeight(
-	network: string,
 	height: number,
 ): Promise<{ height: number; hash: string }> {
-	switch (network) {
-		case "bsv":
-			return bsvProvider.getBlockByHeight(height);
-		case "btc":
-			return btcProvider.getBlockByHeight(height);
-	}
-	throw new Error("Invalid Network");
+	return bsvProvider.getBlockByHeight(height);
 }
 
 export async function getBlockByHash(
-	network: string,
 	hash: string,
 ): Promise<{ height: number; hash: string }> {
-	switch (network) {
-		case "bsv":
-			return bsvProvider.getBlockByHash(hash);
-		case "btc":
-			return btcProvider.getBlockByHash(hash);
-	}
-	throw new Error("Invalid Network");
+	return bsvProvider.getBlockByHash(hash);
 }
 
 export async function loadFileByOutpoint(
@@ -131,7 +78,9 @@ export async function loadFileByOutpoint(
 	}`;
 	const resp = await fetch(url);
 	if (!resp.ok) {
-		throw createError(resp.status, resp.statusText);
+		throw new Error(
+			`loadFileByOutpoint fetch failed for ${outpoint}: ${resp.status} ${resp.statusText}`,
+		);
 	}
 	return {
 		data: Buffer.from(await resp.arrayBuffer()),
@@ -142,7 +91,7 @@ export async function loadFileByOutpoint(
 export async function loadFileByInpoint(inpoint: string): Promise<File> {
 	const [txid, vout] = inpoint.split("i");
 	const rawtx = await getRawTx(txid);
-	const tx = new Transaction(rawtx);
+	const tx = Tx.fromBuffer(rawtx);
 	return parseScript(tx.txIns[Number.parseInt(vout, 10)].script);
 }
 
@@ -158,7 +107,7 @@ export async function loadFileByTxid(txid: string): Promise<File> {
 			);
 		}
 	}
-	throw new NotFound();
+	throw new Error(`Inscription not found in any output for tx ${txid}`);
 }
 
 export function parseScript(script: Script): File {
@@ -194,5 +143,5 @@ export function parseScript(script: Script): File {
 			};
 		}
 	}
-	throw new NotFound();
+	throw new Error("Inscription pattern not found in script");
 }

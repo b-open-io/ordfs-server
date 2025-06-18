@@ -1,0 +1,54 @@
+name: Build and Push Docker Image to GitHub Container Registry
+
+on:
+  push:
+    branches:
+      - main
+      - feature/encore # Add your branch here
+
+permissions:
+  contents: read
+  packages: write # Needed to push to GitHub Packages (ghcr.io)
+
+jobs:
+  build-push-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3 
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }} # GitHub automatically provides this token
+
+      - name: Download Encore CLI script
+        # Using curl directly as suggested in some setups
+        run: curl --output install.sh -L https://encore.dev/install.sh
+
+      - name: Install Encore CLI
+        run: bash install.sh
+
+      - name: Build Docker image with Encore
+        # Using a fixed image name 'ordfs-server'. 
+        # Remove --config flag for now, assuming no complex infra config needed yet.
+        run: /home/runner/.encore/bin/encore build docker ordfs-server
+
+      - name: Tag Docker image
+        # Tags the image with 'latest' and a unique SHA for ghcr.io
+        run: |
+          IMAGE_ID=ghcr.io/${{ github.repository }}/ordfs-server
+          # Change all uppercase to lowercase
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[:upper:]' '[:lower:]')
+          echo IMAGE_ID=$IMAGE_ID
+          docker tag ordfs-server:latest $IMAGE_ID:latest
+          docker tag ordfs-server:latest $IMAGE_ID:${{ github.sha }}
+
+      - name: Push Docker image to ghcr.io
+        run: |
+          IMAGE_ID=ghcr.io/${{ github.repository }}/ordfs-server
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[:upper:]' '[:lower:]')
+          docker push $IMAGE_ID:latest
+          docker push $IMAGE_ID:${{ github.sha }} 
