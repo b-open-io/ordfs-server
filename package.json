@@ -28,14 +28,13 @@
   },
   "dependencies": {
     "@ts-bitcoin/core": "^2.2.0",
-    "axios": "^1.9.0",
     "bitcoin-core": "5.0.0",
     "bitcore-lib": "^10.9.0",
     "cors": "^2.8.5",
     "cross-fetch": "^4.1.0",
     "dotenv": "^16.5.0",
     "ejs": "^3.1.10",
-    "encore.dev": "^1.46.21",
+    "encore.dev": "^1.53.0",
     "express": "5.1.0",
     "http-errors": "^2.0.0",
     "ioredis": "^5.6.1"
